@@ -216,6 +216,13 @@ pnpm config set minimum-release-age 0
 
 Newer pnpm blocks dependency build scripts by default and turns this into a hard
 error. The repo allows the one script it needs (esbuild, used by Vite) via
-`frontend/pnpm-workspace.yaml` (`onlyBuiltDependencies: [esbuild]`), which is the
-location current pnpm reads. If you still hit it, run `pnpm approve-builds` in
-`frontend/` (choose `esbuild`) or `pnpm rebuild esbuild`.
+`frontend/pnpm-workspace.yaml`:
+
+```yaml
+allowBuilds:
+  esbuild: true
+```
+
+`allowBuilds` is the current setting (pnpm 10.26+ and v11); it replaced the older
+`onlyBuiltDependencies` array, which pnpm v11 no longer reads. If you still hit
+the error, run `pnpm approve-builds` in `frontend/` and choose `esbuild`.
