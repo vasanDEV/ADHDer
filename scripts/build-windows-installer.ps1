@@ -155,6 +155,7 @@ else {
 
         Write-Info 'Packaging backend -> dist\adhder-backend.exe'
         Invoke-Py @('-m', 'PyInstaller', '--name', 'adhder-backend', '--onefile', '--noconfirm',
+            '--collect-submodules', 'uvicorn', '--collect-submodules', 'app',
             '--distpath', 'dist', '--workpath', 'build', '--specpath', 'build', 'run_server.py')
     }
     finally { Pop-Location }

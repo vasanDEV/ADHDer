@@ -133,7 +133,7 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt pyinstaller
-pyinstaller --name adhder-backend --onefile run_server.py
+pyinstaller --name adhder-backend --onefile --collect-submodules uvicorn --collect-submodules app run_server.py
 ```
 
 This produces `backend\dist\adhder-backend.exe`. Tauri expects the sidecar named

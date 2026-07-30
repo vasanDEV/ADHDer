@@ -55,7 +55,7 @@ pnpm dlx @tauri-apps/cli dev --config tauri.conf.json
    cd backend
    python -m venv .venv; .\.venv\Scripts\Activate.ps1
    pip install -r requirements.txt pyinstaller
-   pyinstaller --name adhder-backend --onefile run_server.py
+   pyinstaller --name adhder-backend --onefile --collect-submodules uvicorn --collect-submodules app run_server.py
    mkdir ..\desktop\binaries -Force
    copy dist\adhder-backend.exe ..\desktop\binaries\adhder-backend-x86_64-pc-windows-msvc.exe
    ```
