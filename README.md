@@ -90,6 +90,40 @@ pnpm dlx @tauri-apps/cli dev
 Run these on **Windows** (the desktop shell targets WebView2 and cannot be built
 on Linux/macOS). Make sure the desktop prerequisites above are installed.
 
+### The easy way: one build script
+
+`scripts/build-windows-installer.ps1` runs the whole pipeline automatically —
+backend sidecar (PyInstaller) → correct target-triple copy → icons (if missing)
+→ `tauri build`:
+
+```powershell
+# from the repo root
+powershell -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1
+```
+
+Useful switches:
+
+| Switch | Purpose |
+| ------ | ------- |
+| `-SkipBackend` | Reuse the existing sidecar and only rebuild the frontend + shell (fast iteration after frontend-only changes). |
+| `-CondaEnv <name>` | Build the Python sidecar in a conda env instead of a `.venv`. |
+| `-SourceIcon <png>` | Generate the app icons from your own square PNG. |
+| `-SkipIcons` | Never regenerate icons. |
+| `-Bundle msi` / `-Bundle nsis` | Build only one installer format. |
+
+> **Conda users:** if you've already `conda activate`d your environment, the
+> script uses it automatically for the backend build. You can also name it
+> explicitly, e.g. `... build-windows-installer.ps1 -CondaEnv neww`. Make sure
+> that env uses Python 3.11–3.13.
+
+For a quick rebuild after tweaking the UI:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1 -SkipBackend
+```
+
+The manual steps below are equivalent, if you prefer to run them yourself.
+
 ### 1. Build the backend sidecar (PyInstaller)
 
 Bundle the Python backend into a single `.exe` so end users don't need Python:

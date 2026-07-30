@@ -41,6 +41,11 @@ pnpm dlx @tauri-apps/cli dev --config tauri.conf.json
 
 ## Packaging (Windows installer)
 
+> **Quickest path:** run the automated build script from the repo root —
+> `powershell -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1`
+> (add `-SkipBackend` for fast frontend-only rebuilds). The manual steps below
+> are what that script automates.
+
 1. **Build the backend sidecar** with PyInstaller and copy it to
    `desktop/binaries/`, named with the Rust target triple (the `externalBin`
    entry in `tauri.conf.json`). Find your triple with `rustc -Vv` — on 64-bit
