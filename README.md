@@ -179,3 +179,21 @@ Check the interpreter version at any time with `python --version`.
 [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 ("Desktop development with C++") plus Rust, so the from-source build can link.
 This is slower and heavier than simply using Python 3.12.
+
+### `failed to run 'cargo metadata' ... program not found` (during `tauri build`)
+
+Tauri compiles the desktop shell with Rust, so **Cargo/Rust must be installed and
+on your PATH**. Install it with [rustup](https://rustup.rs) (or
+`winget install Rustlang.Rustup`), choosing the default
+`stable-x86_64-pc-windows-msvc` toolchain, then **open a new terminal** so
+`%USERPROFILE%\.cargo\bin` is on PATH and verify:
+
+```powershell
+cargo --version
+rustc --version
+```
+
+Then re-run `pnpm dlx @tauri-apps/cli build`. If the Rust build later fails with
+`error: linker link.exe not found`, install the
+[Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+("Desktop development with C++") and rebuild.
