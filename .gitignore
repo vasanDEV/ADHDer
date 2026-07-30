@@ -1,0 +1,28 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+*.db
+*.db-wal
+*.db-shm
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# Tauri / Rust
+desktop/target/
+desktop/gen/
+desktop/binaries/
+desktop/icons/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.log
