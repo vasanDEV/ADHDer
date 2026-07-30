@@ -13,10 +13,11 @@ import { useUiStore } from "@/stores/useUiStore";
 
 const useStyles = makeStyles({
   root: {
+    position: "relative",
     display: "flex",
     height: "100vh",
     width: "100vw",
-    backgroundColor: tokens.colorNeutralBackground1,
+    backgroundColor: tokens.colorNeutralBackground2,
     color: tokens.colorNeutralForeground1,
   },
   content: {

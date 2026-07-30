@@ -1,4 +1,4 @@
-import { makeStyles, Text, tokens } from "@fluentui/react-components";
+import { makeStyles, tokens } from "@fluentui/react-components";
 import type { ReactNode } from "react";
 
 const useStyles = makeStyles({
@@ -6,17 +6,18 @@ const useStyles = makeStyles({
     display: "flex",
     flexDirection: "column",
     height: "100%",
-    padding: "24px 28px",
-    gap: "16px",
+    padding: "32px 40px",
+    gap: "24px",
   },
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "12px",
+    gap: "16px",
   },
-  titleGroup: { display: "flex", flexDirection: "column", gap: "2px" },
-  subtitle: { color: tokens.colorNeutralForeground3 },
+  titleGroup: { display: "flex", flexDirection: "column", gap: "4px" },
+  title: { fontSize: "28px", fontWeight: 600, lineHeight: 1.15, color: tokens.colorNeutralForeground1 },
+  subtitle: { fontSize: "14px", color: tokens.colorNeutralForeground2 },
   body: { flex: 1, minHeight: 0 },
 });
 
@@ -33,10 +34,8 @@ export function Page({ title, subtitle, actions, children }: PageProps) {
     <div className={styles.root}>
       <div className={styles.header}>
         <div className={styles.titleGroup}>
-          <Text size={700} weight="semibold">
-            {title}
-          </Text>
-          {subtitle && <Text className={styles.subtitle}>{subtitle}</Text>}
+          <span className={styles.title}>{title}</span>
+          {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
         </div>
         {actions}
       </div>

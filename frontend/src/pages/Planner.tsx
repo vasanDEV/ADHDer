@@ -1,13 +1,5 @@
-import {
-  Button,
-  Card,
-  makeStyles,
-  Tab,
-  TabList,
-  Text,
-  tokens,
-} from "@fluentui/react-components";
-import { ChevronLeftRegular, ChevronRightRegular } from "@fluentui/react-icons";
+import { Button, makeStyles, tokens } from "@fluentui/react-components";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   addDays,
   addMonths,
@@ -21,6 +13,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 import { DayTasksPanel } from "@/components/planner/DayTasksPanel";
@@ -33,57 +26,79 @@ type View = "month" | "week" | "day";
 const useStyles = makeStyles({
   layout: {
     display: "grid",
-    gridTemplateColumns: "1fr 320px",
-    gap: "16px",
+    gridTemplateColumns: "1fr 340px",
+    gap: "24px",
     height: "100%",
     minHeight: 0,
-    "@media (max-width: 900px)": { gridTemplateColumns: "1fr" },
+    "@media (max-width: 960px)": { gridTemplateColumns: "1fr" },
   },
-  calendarCard: { padding: "16px", display: "flex", flexDirection: "column", gap: "12px" },
+  calendar: { display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 },
   toolbar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" },
-  navGroup: { display: "flex", alignItems: "center", gap: "8px" },
-  monthGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(7, 1fr)",
-    gap: "6px",
-    flex: 1,
-    minHeight: 0,
+  navGroup: { display: "flex", alignItems: "center", gap: "4px" },
+  heading: {
+    fontSize: "20px",
+    fontWeight: 600,
+    minWidth: "170px",
+    color: tokens.colorNeutralForeground1,
   },
+  segmented: {
+    display: "inline-flex",
+    padding: "4px",
+    gap: "2px",
+    borderRadius: "999px",
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  segBtn: { borderRadius: "999px", minWidth: "72px", border: "none", fontWeight: 500 },
+  weekdays: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px" },
   weekday: {
     textAlign: "center",
     fontSize: "12px",
     fontWeight: 600,
     color: tokens.colorNeutralForeground3,
+    letterSpacing: "0.04em",
     paddingBottom: "4px",
+  },
+  monthGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(7, 1fr)",
+    gridAutoRows: "1fr",
+    gap: "4px",
+    flex: 1,
+    minHeight: 0,
   },
   dayCell: {
     display: "flex",
     flexDirection: "column",
+    alignItems: "center",
     gap: "4px",
-    minHeight: "84px",
-    padding: "6px",
-    borderRadius: tokens.borderRadiusMedium,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
-    backgroundColor: tokens.colorNeutralBackground1,
+    padding: "8px 6px",
+    borderRadius: "12px",
+    backgroundColor: "transparent",
     cursor: "pointer",
-    ":hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
-    textAlign: "left",
+    border: "none",
+    transition: "background-color 120ms ease",
+    ":hover": { backgroundColor: tokens.colorNeutralBackground1 },
   },
-  outside: { opacity: 0.4 },
-  selected: { outline: `2px solid ${tokens.colorBrandStroke1}`, outlineOffset: "-2px" },
-  today: { border: `1px solid ${tokens.colorBrandForeground1}` },
-  dayNum: { fontSize: "13px", fontWeight: 600 },
-  pill: {
-    fontSize: "10px",
-    padding: "1px 5px",
-    borderRadius: "6px",
-    backgroundColor: tokens.colorBrandBackground2,
-    color: tokens.colorBrandForeground1,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+  outside: { opacity: 0.35 },
+  selected: { backgroundColor: tokens.colorNeutralBackground1 },
+  dayNum: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "28px",
+    height: "28px",
+    fontSize: "15px",
+    fontWeight: 500,
+    borderRadius: "999px",
+    color: tokens.colorNeutralForeground1,
   },
-  panelCard: { padding: "16px", height: "100%", minHeight: 0 },
+  todayNum: {
+    backgroundColor: tokens.colorBrandBackground,
+    color: "#FFFFFF",
+    fontWeight: 600,
+  },
+  dots: { display: "flex", gap: "3px", flexWrap: "wrap", justifyContent: "center" },
+  dot: { width: "5px", height: "5px", borderRadius: "999px", backgroundColor: tokens.colorBrandForeground1 },
   weekGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(7, 1fr)",
@@ -94,13 +109,36 @@ const useStyles = makeStyles({
   weekCol: {
     display: "flex",
     flexDirection: "column",
-    gap: "6px",
-    padding: "8px",
-    borderRadius: tokens.borderRadiusMedium,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    gap: "8px",
+    padding: "12px 8px",
+    borderRadius: "16px",
+    backgroundColor: tokens.colorNeutralBackground1,
     overflowY: "auto",
     cursor: "pointer",
   },
+  weekColHead: { display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" },
+  weekDow: { fontSize: "11px", fontWeight: 600, color: tokens.colorNeutralForeground3 },
+  weekDay: { fontSize: "17px", fontWeight: 500, color: tokens.colorNeutralForeground1 },
+  pill: {
+    fontSize: "11px",
+    padding: "3px 8px",
+    borderRadius: "8px",
+    backgroundColor: tokens.colorBrandBackground2,
+    color: tokens.colorBrandForeground1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  more: { fontSize: "10px", color: tokens.colorNeutralForeground3 },
+  panel: {
+    height: "100%",
+    minHeight: 0,
+    padding: "20px",
+    borderRadius: "16px",
+    backgroundColor: tokens.colorNeutralBackground1,
+    overflow: "hidden",
+  },
+  dayHint: { fontSize: "14px", color: tokens.colorNeutralForeground2 },
 });
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -164,29 +202,29 @@ export function PlannerPage() {
         : format(cursor, "MMMM yyyy");
 
   return (
-    <Page title="Planner" subtitle="Plan day-wise — entries sync with your Task Board.">
+    <Page title="Planner" subtitle="Plans sync automatically with your Task Board.">
       <div className={styles.layout}>
-        <Card className={styles.calendarCard}>
+        <div className={styles.calendar}>
           <div className={styles.toolbar}>
             <div className={styles.navGroup}>
               <Button
                 appearance="subtle"
-                icon={<ChevronLeftRegular />}
+                shape="circular"
+                icon={<ChevronLeft size={18} strokeWidth={1.75} />}
                 aria-label="Previous"
                 onClick={() => shift(-1)}
               />
-              <Text weight="semibold" style={{ minWidth: "150px", textAlign: "center" }}>
-                {heading}
-              </Text>
+              <span className={styles.heading}>{heading}</span>
               <Button
                 appearance="subtle"
-                icon={<ChevronRightRegular />}
+                shape="circular"
+                icon={<ChevronRight size={18} strokeWidth={1.75} />}
                 aria-label="Next"
                 onClick={() => shift(1)}
               />
               <Button
                 size="small"
-                appearance="secondary"
+                appearance="subtle"
                 onClick={() => {
                   setCursor(new Date());
                   setSelected(new Date());
@@ -195,56 +233,65 @@ export function PlannerPage() {
                 Today
               </Button>
             </div>
-            <TabList
-              selectedValue={view}
-              onTabSelect={(_, d) => setView(d.value as View)}
-              size="small"
-            >
-              <Tab value="month">Month</Tab>
-              <Tab value="week">Week</Tab>
-              <Tab value="day">Day</Tab>
-            </TabList>
+            <div className={styles.segmented}>
+              {(["month", "week", "day"] as const).map((v) => (
+                <Button
+                  key={v}
+                  size="small"
+                  className={styles.segBtn}
+                  appearance={view === v ? "primary" : "subtle"}
+                  onClick={() => setView(v)}
+                >
+                  {v[0].toUpperCase() + v.slice(1)}
+                </Button>
+              ))}
+            </div>
           </div>
 
           {view === "month" && (
-            <div className={styles.monthGrid}>
-              {WEEKDAYS.map((w) => (
-                <div key={w} className={styles.weekday}>
-                  {w}
-                </div>
-              ))}
-              {monthDays.map((day) => {
-                const dayTasks = tasksFor(day);
-                const cls = [
-                  styles.dayCell,
-                  !isSameMonth(day, cursor) && styles.outside,
-                  isSameDay(day, selected) && styles.selected,
-                  isSameDay(day, new Date()) && styles.today,
-                ]
-                  .filter(Boolean)
-                  .join(" ");
-                return (
-                  <button
-                    key={day.toISOString()}
-                    className={cls}
-                    onClick={() => {
-                      setSelected(day);
-                      setView("day");
-                    }}
-                  >
-                    <span className={styles.dayNum}>{format(day, "d")}</span>
-                    {dayTasks.slice(0, 3).map((t) => (
-                      <span key={t.id} className={styles.pill} title={t.title}>
-                        {t.title}
+            <>
+              <div className={styles.weekdays}>
+                {WEEKDAYS.map((w) => (
+                  <div key={w} className={styles.weekday}>
+                    {w}
+                  </div>
+                ))}
+              </div>
+              <div className={styles.monthGrid}>
+                {monthDays.map((day) => {
+                  const dayTasks = tasksFor(day);
+                  const isToday = isSameDay(day, new Date());
+                  const cls = [
+                    styles.dayCell,
+                    !isSameMonth(day, cursor) && styles.outside,
+                    isSameDay(day, selected) && styles.selected,
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      className={cls}
+                      onClick={() => {
+                        setSelected(day);
+                        setView("day");
+                      }}
+                    >
+                      <span className={`${styles.dayNum} ${isToday ? styles.todayNum : ""}`}>
+                        {format(day, "d")}
                       </span>
-                    ))}
-                    {dayTasks.length > 3 && (
-                      <Text size={100}>+{dayTasks.length - 3} more</Text>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                      {dayTasks.length > 0 && (
+                        <span className={styles.dots}>
+                          {dayTasks.slice(0, 4).map((t) => (
+                            <span key={t.id} className={styles.dot} />
+                          ))}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
 
           {view === "week" && (
@@ -255,9 +302,10 @@ export function PlannerPage() {
                   className={styles.weekCol}
                   onClick={() => setSelected(day)}
                 >
-                  <Text size={200} weight="semibold">
-                    {format(day, "EEE d")}
-                  </Text>
+                  <div className={styles.weekColHead}>
+                    <span className={styles.weekDow}>{format(day, "EEE")}</span>
+                    <span className={styles.weekDay}>{format(day, "d")}</span>
+                  </div>
                   {tasksFor(day).map((t) => (
                     <span key={t.id} className={styles.pill} title={t.title}>
                       {t.title}
@@ -269,21 +317,32 @@ export function PlannerPage() {
           )}
 
           {view === "day" && (
-            <Text style={{ color: tokens.colorNeutralForeground3 }}>
-              Use the panel on the right to manage {format(selected, "MMMM d")}.
-            </Text>
+            <span className={styles.dayHint}>
+              Manage {format(selected, "MMMM d")} in the panel on the right.
+            </span>
           )}
-        </Card>
+        </div>
 
-        <Card className={styles.panelCard}>
-          <DayTasksPanel
-            day={selected}
-            tasks={tasksFor(selected)}
-            onAdd={(title) => addToDay(selected, title)}
-            onToggle={toggle}
-            onDelete={(id) => void remove(id)}
-          />
-        </Card>
+        <div className={styles.panel}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={dayKey(selected)}
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -16 }}
+              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+              style={{ height: "100%" }}
+            >
+              <DayTasksPanel
+                day={selected}
+                tasks={tasksFor(selected)}
+                onAdd={(title) => addToDay(selected, title)}
+                onToggle={toggle}
+                onDelete={(id) => void remove(id)}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
     </Page>
   );

@@ -1,4 +1,4 @@
-import { Badge, makeStyles, Text, tokens } from "@fluentui/react-components";
+import { makeStyles, tokens } from "@fluentui/react-components";
 import { AnimatePresence } from "framer-motion";
 import { useDrop } from "react-dnd";
 
@@ -10,29 +10,35 @@ const useStyles = makeStyles({
   column: {
     display: "flex",
     flexDirection: "column",
-    gap: "10px",
-    padding: "12px",
-    borderRadius: tokens.borderRadiusLarge,
-    backgroundColor: tokens.colorNeutralBackground2,
-    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    gap: "14px",
     minHeight: 0,
     height: "100%",
+    padding: "4px 6px",
+    borderRadius: "16px",
+    transition: "background-color 150ms ease",
   },
-  header: { display: "flex", alignItems: "center", justifyContent: "space-between" },
-  list: { display: "flex", flexDirection: "column", gap: "10px", overflowY: "auto", flex: 1 },
-  over: { outline: `2px dashed ${tokens.colorBrandStroke1}`, outlineOffset: "-4px" },
+  over: { backgroundColor: tokens.colorNeutralBackground1Hover },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "0 6px",
+  },
+  title: { fontSize: "13px", fontWeight: 600, color: tokens.colorNeutralForeground2, letterSpacing: "0.02em" },
+  count: { fontSize: "12px", color: tokens.colorNeutralForeground3 },
+  list: { display: "flex", flexDirection: "column", gap: "12px", overflowY: "auto", flex: 1, padding: "2px" },
   empty: {
-    padding: "24px 8px",
+    padding: "28px 12px",
     textAlign: "center",
+    fontSize: "13px",
     color: tokens.colorNeutralForeground4,
-    border: `1px dashed ${tokens.colorNeutralStroke2}`,
-    borderRadius: tokens.borderRadiusMedium,
   },
 });
 
 interface KanbanColumnProps {
   status: TaskStatus;
   title: string;
+  emptyLabel: string;
   tasks: Task[];
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
@@ -42,6 +48,7 @@ interface KanbanColumnProps {
 export function KanbanColumn({
   status,
   title,
+  emptyLabel,
   tasks,
   onEdit,
   onDelete,
@@ -49,23 +56,23 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const styles = useStyles();
 
-  const [{ isOver }, drop] = useDrop<TaskDragItem, void, { isOver: boolean }>(() => ({
-    accept: TASK_DND_TYPE,
-    drop: (item, monitor) => {
-      // Only handle when a card inside the column didn't already handle it.
-      if (monitor.didDrop()) return;
-      onDropInColumn(item, status, tasks.length);
-    },
-    collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
-  }), [status, tasks.length, onDropInColumn]);
+  const [{ isOver }, drop] = useDrop<TaskDragItem, void, { isOver: boolean }>(
+    () => ({
+      accept: TASK_DND_TYPE,
+      drop: (item, monitor) => {
+        if (monitor.didDrop()) return;
+        onDropInColumn(item, status, tasks.length);
+      },
+      collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
+    }),
+    [status, tasks.length, onDropInColumn],
+  );
 
   return (
     <div ref={drop} className={`${styles.column} ${isOver ? styles.over : ""}`}>
       <div className={styles.header}>
-        <Text weight="semibold">{title}</Text>
-        <Badge appearance="tint" color="informative">
-          {tasks.length}
-        </Badge>
+        <span className={styles.title}>{title}</span>
+        <span className={styles.count}>{tasks.length}</span>
       </div>
       <div className={styles.list}>
         <AnimatePresence mode="popLayout">
@@ -80,7 +87,7 @@ export function KanbanColumn({
             />
           ))}
         </AnimatePresence>
-        {tasks.length === 0 && <div className={styles.empty}>Drop tasks here</div>}
+        {tasks.length === 0 && <div className={styles.empty}>{emptyLabel}</div>}
       </div>
     </div>
   );

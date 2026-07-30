@@ -3,14 +3,10 @@ import {
   Input,
   makeStyles,
   Text,
+  Tooltip,
   tokens,
 } from "@fluentui/react-components";
-import {
-  AddRegular,
-  DeleteRegular,
-  DocumentSplitHintRegular,
-  EyeRegular,
-} from "@fluentui/react-icons";
+import { Columns2, Eye, Plus, Trash2 } from "lucide-react";
 import MDEditor from "@uiw/react-md-editor";
 import { useEffect, useMemo, useRef, useState } from "react";
 import rehypeKatex from "rehype-katex";
@@ -25,24 +21,34 @@ import { useUiStore } from "@/stores/useUiStore";
 const useStyles = makeStyles({
   layout: {
     display: "grid",
-    gridTemplateColumns: "280px 1fr",
-    gap: "16px",
+    gridTemplateColumns: "300px 1fr",
+    gap: "24px",
     height: "100%",
     minHeight: 0,
   },
-  editorPane: { display: "flex", flexDirection: "column", gap: "10px", minWidth: 0 },
-  titleRow: { display: "flex", gap: "8px", alignItems: "center" },
-  titleInput: { flex: 1, fontSize: "18px", fontWeight: 600 },
+  editorPane: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "8px",
+    minWidth: 0,
+    padding: "8px 12px",
+    borderRadius: "16px",
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  titleRow: { display: "flex", gap: "4px", alignItems: "center", paddingTop: "4px" },
+  titleInput: { flex: 1, fontSize: "22px", fontWeight: 600 },
+  tagsInput: { maxWidth: "360px" },
+  toolbar: { display: "flex", gap: "2px", alignItems: "center" },
   editorWrap: { flex: 1, minHeight: 0, display: "flex" },
-  status: { color: tokens.colorNeutralForeground3, fontSize: "12px" },
+  status: { color: tokens.colorNeutralForeground3, fontSize: "12px", paddingLeft: "4px" },
   emptyState: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     height: "100%",
-    gap: "12px",
-    color: tokens.colorNeutralForeground3,
+    gap: "16px",
+    color: tokens.colorNeutralForeground2,
   },
 });
 
@@ -127,7 +133,11 @@ export function NotesPage() {
       title="Notes"
       subtitle="Markdown notebook with live preview and autosave."
       actions={
-        <Button appearance="primary" icon={<AddRegular />} onClick={() => void create()}>
+        <Button
+          appearance="primary"
+          icon={<Plus size={16} strokeWidth={2} />}
+          onClick={() => void create()}
+        >
           New note
         </Button>
       }
@@ -155,30 +165,38 @@ export function NotesPage() {
                   markDirty();
                 }}
               />
-              <Button
-                appearance={previewMode === "live" ? "primary" : "subtle"}
-                icon={<DocumentSplitHintRegular />}
-                onClick={() => setPreviewMode("live")}
-              >
-                Split
-              </Button>
-              <Button
-                appearance={previewMode === "preview" ? "primary" : "subtle"}
-                icon={<EyeRegular />}
-                onClick={() => setPreviewMode("preview")}
-              >
-                Preview
-              </Button>
-              <Button
-                appearance="subtle"
-                icon={<DeleteRegular />}
-                aria-label="Delete note"
-                onClick={() => void remove(active.id)}
-              />
+              <div className={styles.toolbar}>
+                <Tooltip content="Split view" relationship="label">
+                  <Button
+                    appearance={previewMode === "live" ? "primary" : "subtle"}
+                    icon={<Columns2 size={17} strokeWidth={1.75} />}
+                    aria-label="Split view"
+                    onClick={() => setPreviewMode("live")}
+                  />
+                </Tooltip>
+                <Tooltip content="Preview" relationship="label">
+                  <Button
+                    appearance={previewMode === "preview" ? "primary" : "subtle"}
+                    icon={<Eye size={17} strokeWidth={1.75} />}
+                    aria-label="Preview"
+                    onClick={() => setPreviewMode("preview")}
+                  />
+                </Tooltip>
+                <Tooltip content="Delete note" relationship="label">
+                  <Button
+                    appearance="subtle"
+                    icon={<Trash2 size={17} strokeWidth={1.75} />}
+                    aria-label="Delete note"
+                    onClick={() => void remove(active.id)}
+                  />
+                </Tooltip>
+              </div>
             </div>
 
             <Input
-              placeholder="tags, comma, separated"
+              className={styles.tagsInput}
+              appearance="filled-darker"
+              placeholder="Add tags…"
               value={tags}
               onChange={(_, d) => {
                 setTags(d.value);
@@ -207,8 +225,12 @@ export function NotesPage() {
           </div>
         ) : (
           <div className={styles.emptyState}>
-            <Text>Select a note or create a new one.</Text>
-            <Button appearance="primary" icon={<AddRegular />} onClick={() => void create()}>
+            <Text>Nothing here yet. Start writing.</Text>
+            <Button
+              appearance="primary"
+              icon={<Plus size={16} strokeWidth={2} />}
+              onClick={() => void create()}
+            >
               New note
             </Button>
           </div>

@@ -1,59 +1,70 @@
 import {
   Button,
-  Card,
   Dropdown,
   makeStyles,
   Option,
-  Text,
   tokens,
 } from "@fluentui/react-components";
-import {
-  ArrowResetRegular,
-  NextRegular,
-  PauseRegular,
-  PlayRegular,
-} from "@fluentui/react-icons";
+import { Pause, Play, RotateCcw, SkipForward } from "lucide-react";
 
-import { Page } from "@/components/layout/Page";
 import { ProgressRing } from "@/components/pomodoro/ProgressRing";
 import { usePomodoroStore } from "@/stores/usePomodoroStore";
 import { useTaskStore } from "@/stores/useTaskStore";
 import { formatCountdown, formatFocus } from "@/utils/format";
 
 const useStyles = makeStyles({
-  layout: {
-    display: "grid",
-    gridTemplateColumns: "minmax(320px, 1fr) 280px",
-    gap: "24px",
+  root: {
     height: "100%",
-    "@media (max-width: 860px)": { gridTemplateColumns: "1fr" },
-  },
-  timerCard: {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: "24px",
+    gap: "28px",
     padding: "32px",
   },
-  phaseTabs: { display: "flex", gap: "8px" },
-  time: {
-    fontSize: "64px",
-    fontWeight: 300,
-    fontVariantNumeric: "tabular-nums",
-    lineHeight: 1,
+  phases: {
+    display: "inline-flex",
+    padding: "4px",
+    gap: "4px",
+    borderRadius: "999px",
+    backgroundColor: tokens.colorNeutralBackground1,
   },
-  controls: { display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" },
-  side: { display: "flex", flexDirection: "column", gap: "16px" },
-  statCard: { padding: "18px", display: "flex", flexDirection: "column", gap: "4px" },
-  statValue: { fontSize: "28px", fontWeight: 600 },
+  phaseBtn: {
+    borderRadius: "999px",
+    minWidth: "104px",
+    border: "none",
+    fontWeight: 500,
+  },
+  time: {
+    fontSize: "68px",
+    fontWeight: 300,
+    lineHeight: 1,
+    letterSpacing: "-2px",
+    fontVariantNumeric: "tabular-nums",
+    color: tokens.colorNeutralForeground1,
+  },
+  sessionLabel: {
+    fontSize: "14px",
+    fontWeight: 500,
+    color: tokens.colorNeutralForeground2,
+    marginTop: "8px",
+  },
+  controls: { display: "flex", gap: "12px", alignItems: "center" },
+  primaryBtn: { borderRadius: "12px", minWidth: "132px" },
+  ghostBtn: { borderRadius: "12px" },
+  hint: { fontSize: "12px", color: tokens.colorNeutralForeground3 },
+  taskPicker: { minWidth: "240px" },
+  stats: { display: "flex", gap: "48px", marginTop: "8px" },
+  stat: { display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" },
+  statValue: { fontSize: "24px", fontWeight: 600, color: tokens.colorNeutralForeground1 },
+  statLabel: { fontSize: "12px", color: tokens.colorNeutralForeground2 },
 });
 
-const PHASE_LABEL: Record<string, string> = {
-  work: "Focus",
-  short_break: "Short break",
-  long_break: "Long break",
-};
+const PHASES = [
+  { key: "work", label: "Focus" },
+  { key: "short_break", label: "Short break" },
+  { key: "long_break", label: "Long break" },
+] as const;
 
 export function PomodoroPage() {
   const styles = useStyles();
@@ -74,96 +85,104 @@ export function PomodoroPage() {
 
   const activeTasks = tasks.filter((t) => t.status !== "done");
   const progress = duration > 0 ? remaining / duration : 0;
+  const sessionLabel = PHASES.find((p) => p.key === phase)?.label ?? "Focus";
 
   return (
-    <Page title="Pomodoro" subtitle="Focus in short, deliberate sprints.">
-      <div className={styles.layout}>
-        <Card className={styles.timerCard}>
-          <div className={styles.phaseTabs}>
-            {(["work", "short_break", "long_break"] as const).map((p) => (
-              <Button
-                key={p}
-                size="small"
-                appearance={phase === p ? "primary" : "subtle"}
-                onClick={() => {
-                  // Switching phase resets the timer to that phase.
-                  usePomodoroStore.setState({ phase: p, running: false });
-                  usePomodoroStore.getState().stop();
-                }}
-              >
-                {PHASE_LABEL[p]}
-              </Button>
-            ))}
-          </div>
+    <div className={styles.root}>
+      <div className={styles.phases}>
+        {PHASES.map((p) => (
+          <Button
+            key={p.key}
+            size="small"
+            className={styles.phaseBtn}
+            appearance={phase === p.key ? "primary" : "subtle"}
+            onClick={() => {
+              usePomodoroStore.setState({ phase: p.key, running: false });
+              usePomodoroStore.getState().stop();
+            }}
+          >
+            {p.label}
+          </Button>
+        ))}
+      </div>
 
-          <ProgressRing progress={progress}>
-            <Text className={styles.time}>{formatCountdown(remaining)}</Text>
-            <Text style={{ color: tokens.colorNeutralForeground3 }}>{PHASE_LABEL[phase]}</Text>
-          </ProgressRing>
+      <ProgressRing progress={progress} size={300}>
+        <div className={styles.time}>{formatCountdown(remaining)}</div>
+        <div className={styles.sessionLabel}>{sessionLabel}</div>
+      </ProgressRing>
 
-          <div className={styles.controls}>
-            {running ? (
-              <Button appearance="primary" icon={<PauseRegular />} onClick={pause}>
-                Pause
-              </Button>
-            ) : (
-              <Button appearance="primary" icon={<PlayRegular />} onClick={start}>
-                {remaining < duration ? "Resume" : "Start"}
-              </Button>
-            )}
-            <Button icon={<ArrowResetRegular />} onClick={stop}>
-              Stop
-            </Button>
-            <Button icon={<NextRegular />} onClick={skip}>
-              Skip
-            </Button>
-          </div>
+      <div className={styles.controls}>
+        {running ? (
+          <Button
+            appearance="primary"
+            className={styles.primaryBtn}
+            size="large"
+            icon={<Pause size={18} strokeWidth={2} />}
+            onClick={pause}
+          >
+            Pause
+          </Button>
+        ) : (
+          <Button
+            appearance="primary"
+            className={styles.primaryBtn}
+            size="large"
+            icon={<Play size={18} strokeWidth={2} />}
+            onClick={start}
+          >
+            {remaining < duration ? "Resume" : "Start"}
+          </Button>
+        )}
+        <Button
+          appearance="subtle"
+          className={styles.ghostBtn}
+          size="large"
+          icon={<RotateCcw size={18} strokeWidth={1.75} />}
+          onClick={stop}
+          aria-label="Stop"
+        />
+        <Button
+          appearance="subtle"
+          className={styles.ghostBtn}
+          size="large"
+          icon={<SkipForward size={18} strokeWidth={1.75} />}
+          onClick={skip}
+          aria-label="Skip"
+        />
+      </div>
 
-          <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
-            Press Space to start or pause.
-          </Text>
-        </Card>
+      <span className={styles.hint}>Press Space to start or pause</span>
 
-        <div className={styles.side}>
-          <Card className={styles.statCard}>
-            <Text weight="semibold">Linked task</Text>
-            <Dropdown
-              placeholder="No task"
-              value={activeTasks.find((t) => t.id === taskId)?.title ?? "No task"}
-              selectedOptions={taskId ? [String(taskId)] : []}
-              onOptionSelect={(_, data) =>
-                setTask(data.optionValue ? Number(data.optionValue) : null)
-              }
-            >
-              <Option value="">No task</Option>
-              {activeTasks.map((t) => (
-                <Option key={t.id} value={String(t.id)}>
-                  {t.title}
-                </Option>
-              ))}
-            </Dropdown>
-          </Card>
+      <Dropdown
+        className={styles.taskPicker}
+        placeholder="Link a task (optional)"
+        appearance="filled-darker"
+        value={activeTasks.find((t) => t.id === taskId)?.title ?? ""}
+        selectedOptions={taskId ? [String(taskId)] : []}
+        onOptionSelect={(_, data) => setTask(data.optionValue ? Number(data.optionValue) : null)}
+      >
+        <Option value="">No task</Option>
+        {activeTasks.map((t) => (
+          <Option key={t.id} value={String(t.id)}>
+            {t.title}
+          </Option>
+        ))}
+      </Dropdown>
 
-          <Card className={styles.statCard}>
-            <Text weight="semibold">Today</Text>
-            <span className={styles.statValue}>{stats.today_count}</span>
-            <Text style={{ color: tokens.colorNeutralForeground3 }}>
-              {formatFocus(stats.today_focus_seconds)} focused
-            </Text>
-          </Card>
-          <Card className={styles.statCard}>
-            <Text weight="semibold">This week</Text>
-            <span className={styles.statValue}>{stats.week_count}</span>
-          </Card>
-          <Card className={styles.statCard}>
-            <Text weight="semibold">All time</Text>
-            <span className={styles.statValue}>{stats.total_count}</span>
-            <Text style={{ color: tokens.colorNeutralForeground3 }}>
-              {formatFocus(stats.total_focus_seconds)} total
-            </Text>
-          </Card>
+      <div className={styles.stats}>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{stats.today_count}</span>
+          <span className={styles.statLabel}>Today</span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{stats.week_count}</span>
+          <span className={styles.statLabel}>This week</span>
+        </div>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{formatFocus(stats.total_focus_seconds)}</span>
+          <span className={styles.statLabel}>Total focus</span>
         </div>
       </div>
-    </Page>
+    </div>
   );
 }

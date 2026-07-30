@@ -1,5 +1,6 @@
-/* Global base styles. Fluent UI supplies component tokens; this handles the
-   app frame, scrollbars and third-party (markdown / katex) styling. */
+/* Global base styles for the ADHDer design language. Fluent supplies component
+   tokens; this handles the app frame, fonts, focus rings and Markdown styling. */
+@import "@fontsource-variable/inter";
 @import "katex/dist/katex.min.css";
 
 * {
@@ -16,31 +17,89 @@ body,
 
 body {
   font-family:
-    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    "Segoe UI Variable Display", "Segoe UI Variable", "Inter Variable", Inter,
+    "Segoe UI", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
 }
 
-/* Slim, unobtrusive scrollbars for a native Windows 11 feel. */
+/* Slim, unobtrusive scrollbars. */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.4);
+  background: rgba(128, 128, 128, 0.28);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.6);
+  background: rgba(128, 128, 128, 0.45);
   background-clip: content-box;
 }
 
-/* Let the markdown editor adopt the app's dark/light mode. */
-[data-theme="dark"] {
-  --color-canvas-default: #1f1f1f;
+/* Respect reduced-motion preferences everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
+/* -------- Markdown editor: "writing on paper" (Apple Notes) -------- */
 .w-md-editor {
   box-shadow: none !important;
+  background-color: transparent !important;
+  border-radius: 16px;
+}
+.w-md-editor-text-input,
+.w-md-editor-text-pre > code,
+.w-md-editor-text {
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  font-family:
+    "Segoe UI Variable Text", "Inter Variable", Inter, "Segoe UI", system-ui, sans-serif !important;
+}
+.w-md-editor-toolbar {
+  border: none !important;
+  background-color: transparent !important;
+  padding: 6px 8px !important;
+}
+.w-md-editor-content {
+  background-color: transparent !important;
+}
+
+/* Preview typography */
+.wmde-markdown {
+  background-color: transparent !important;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+}
+.wmde-markdown h1,
+.wmde-markdown h2 {
+  border-bottom: none !important;
+  font-weight: 600;
+}
+.wmde-markdown pre {
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+}
+.wmde-markdown code {
+  border-radius: 6px !important;
+}
+.wmde-markdown table td,
+.wmde-markdown table th {
+  border-color: rgba(128, 128, 128, 0.18) !important;
+}
+.wmde-markdown input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  border-radius: 5px;
+  accent-color: #007aff;
 }

@@ -21,7 +21,7 @@ export function CompletionFlash() {
       new Notification("ADHDer", { body: "Pomodoro complete. Time for a break!" });
     }
 
-    const timeout = setTimeout(() => clearFlash(), 1600);
+    const timeout = setTimeout(() => clearFlash(), 2100);
     return () => clearTimeout(timeout);
   }, [flash, clearFlash, soundOn]);
 
@@ -29,11 +29,12 @@ export function CompletionFlash() {
     <AnimatePresence>
       {flash && (
         <motion.div
-          key="flash"
+          key="completion"
           initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.85, 0.6, 0.85, 0] }}
+          // Gentle fade in → hold → fade out (~2s). No flashing.
+          animate={{ opacity: [0, 0.72, 0.72, 0] }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 1.5, times: [0, 0.15, 0.5, 0.75, 1] }}
+          transition={{ duration: 2, times: [0, 0.25, 0.7, 1], ease: "easeInOut" }}
           style={{
             position: "fixed",
             inset: 0,

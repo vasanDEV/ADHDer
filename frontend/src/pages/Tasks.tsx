@@ -5,7 +5,7 @@ import {
   Tab,
   TabList,
 } from "@fluentui/react-components";
-import { AddRegular, SearchRegular } from "@fluentui/react-icons";
+import { Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { KanbanColumn } from "@/components/tasks/KanbanColumn";
@@ -32,10 +32,10 @@ const useStyles = makeStyles({
 
 type FilterKey = "all" | "today" | "tomorrow" | "overdue" | "completed";
 
-const COLUMNS: { status: TaskStatus; title: string }[] = [
-  { status: "todo", title: "To Do" },
-  { status: "in_progress", title: "Currently Working" },
-  { status: "done", title: "Finished" },
+const COLUMNS: { status: TaskStatus; title: string; emptyLabel: string }[] = [
+  { status: "todo", title: "To Do", emptyLabel: "No tasks for today." },
+  { status: "in_progress", title: "Currently Working", emptyLabel: "Nothing in progress." },
+  { status: "done", title: "Finished", emptyLabel: "Nothing finished yet." },
 ];
 
 function isoDate(offsetDays = 0): string {
@@ -117,7 +117,7 @@ export function TasksPage() {
       actions={
         <Button
           appearance="primary"
-          icon={<AddRegular />}
+          icon={<Plus size={16} strokeWidth={2} />}
           onClick={() => {
             setEditing(null);
             setDialogOpen(true);
@@ -132,7 +132,8 @@ export function TasksPage() {
           <Input
             ref={searchRef}
             className={styles.search}
-            contentBefore={<SearchRegular />}
+            appearance="filled-darker"
+            contentBefore={<Search size={15} strokeWidth={1.75} />}
             placeholder="Search tasks..."
             value={search}
             onChange={(_, d) => setSearch(d.value)}
@@ -156,6 +157,7 @@ export function TasksPage() {
               key={col.status}
               status={col.status}
               title={col.title}
+              emptyLabel={col.emptyLabel}
               tasks={byStatus(col.status)}
               onEdit={(t) => {
                 setEditing(t);
