@@ -212,6 +212,10 @@ disable it explicitly:
 pnpm config set minimum-release-age 0
 ```
 
-> The related warning `The "pnpm" field in package.json is no longer read`
-> (about `onlyBuiltDependencies`) is harmless. If a later step fails because
-> esbuild's build script was skipped, run `pnpm rebuild esbuild` in `frontend/`.
+### `ERR_PNPM_IGNORED_BUILDS: Ignored build scripts: esbuild`
+
+Newer pnpm blocks dependency build scripts by default and turns this into a hard
+error. The repo allows the one script it needs (esbuild, used by Vite) via
+`frontend/pnpm-workspace.yaml` (`onlyBuiltDependencies: [esbuild]`), which is the
+location current pnpm reads. If you still hit it, run `pnpm approve-builds` in
+`frontend/` (choose `esbuild`) or `pnpm rebuild esbuild`.
