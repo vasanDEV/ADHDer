@@ -15,7 +15,9 @@ launches the FastAPI backend as a **sidecar** process.
 
 - [Rust](https://www.rust-lang.org/tools/install) (stable)
 - Node.js 18+ and `pnpm`
+- [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) ("Desktop development with C++")
 - WebView2 runtime (preinstalled on Windows 11)
+- Python 3.11+ (to build the backend sidecar)
 - Tauri CLI: `pnpm add -g @tauri-apps/cli` (or use `pnpm dlx`)
 
 ## Development
@@ -39,24 +41,36 @@ pnpm dlx @tauri-apps/cli dev --config tauri.conf.json
 
 ## Packaging (Windows installer)
 
-1. Build a standalone backend binary with PyInstaller and copy it to
-   `desktop/binaries/adhder-backend-x86_64-pc-windows-msvc.exe`
-   (the `externalBin` entry in `tauri.conf.json`).
+1. **Build the backend sidecar** with PyInstaller and copy it to
+   `desktop/binaries/`, named with the Rust target triple (the `externalBin`
+   entry in `tauri.conf.json`). Find your triple with `rustc -Vv` — on 64-bit
+   Windows it is `x86_64-pc-windows-msvc`.
 
    ```powershell
    cd backend
-   pip install pyinstaller
+   python -m venv .venv; .\.venv\Scripts\Activate.ps1
+   pip install -r requirements.txt pyinstaller
    pyinstaller --name adhder-backend --onefile run_server.py
+   mkdir ..\desktop\binaries -Force
+   copy dist\adhder-backend.exe ..\desktop\binaries\adhder-backend-x86_64-pc-windows-msvc.exe
    ```
 
-2. Build the installer:
+2. **Build the installer** (Tauri builds the frontend and Rust shell for you):
 
    ```powershell
-   cd desktop
+   cd ..\desktop
    pnpm dlx @tauri-apps/cli build
    ```
 
-   Produces `.msi` / `.nsis` installers under `desktop/target/release/bundle/`.
+   Output:
+
+   | Format | Path |
+   | ------ | ---- |
+   | MSI (WiX)  | `target\release\bundle\msi\ADHDer_0.1.0_x64_en-US.msi` |
+   | NSIS setup | `target\release\bundle\nsis\ADHDer_0.1.0_x64-setup.exe` |
+
+   > In `tauri dev` the sidecar is **not** spawned (you run `uvicorn` yourself);
+   > in packaged builds the shell launches the bundled `adhder-backend.exe`.
 
 ## Icons
 

@@ -22,7 +22,10 @@ desktop/     Tauri v2 shell (WebView2) that hosts the frontend and spawns the ba
 
 - Python 3.11+ (3.12 recommended)
 - Node.js 18+ and `pnpm`
-- (Desktop shell only, on Windows) Rust stable + WebView2 runtime
+- **Desktop shell / installer (Windows only):**
+  - [Rust](https://www.rust-lang.org/tools/install) (stable, via `rustup`)
+  - [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) ("Desktop development with C++") — needed to compile the Rust shell
+  - WebView2 runtime (preinstalled on Windows 11)
 
 ## Quick start (development)
 
@@ -65,23 +68,82 @@ to the backend, so no CORS/config changes are needed.
 
 ## Desktop app (Tauri + WebView2)
 
-See [`desktop/README.md`](desktop/README.md) for full development, packaging and
-icon-generation instructions. In short:
+The desktop shell renders the same frontend inside the system WebView2 and, in
+packaged builds, launches the FastAPI backend as a **sidecar** process. In
+development you run the backend/frontend yourself (best for Python debugging):
 
-```bash
-# backend running in one terminal (as above), then:
+```powershell
+# Terminal 1 – backend (auto-reload)
+cd backend
+uvicorn app.main:app --reload --port 8756
+
+# Terminal 2 – desktop shell (auto-starts the Vite dev server)
 cd desktop
 pnpm dlx @tauri-apps/cli dev
 ```
 
-Packaging produces `.msi` / `.nsis` installers; the backend is bundled as a
-sidecar built with PyInstaller.
+## Building the Windows installer
+
+Run these on **Windows** (the desktop shell targets WebView2 and cannot be built
+on Linux/macOS). Make sure the desktop prerequisites above are installed.
+
+### 1. Build the backend sidecar (PyInstaller)
+
+Bundle the Python backend into a single `.exe` so end users don't need Python:
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt pyinstaller
+pyinstaller --name adhder-backend --onefile run_server.py
+```
+
+This produces `backend\dist\adhder-backend.exe`. Tauri expects the sidecar named
+with the Rust **target triple** (find yours with `rustc -Vv`; on 64-bit Windows
+it is `x86_64-pc-windows-msvc`). Copy it into `desktop\binaries\`:
+
+```powershell
+mkdir ..\desktop\binaries -Force
+copy dist\adhder-backend.exe ..\desktop\binaries\adhder-backend-x86_64-pc-windows-msvc.exe
+```
+
+This matches the `externalBin` entry in `desktop/tauri.conf.json`.
+
+### 2. Generate app icons (one-time)
+
+Tauri requires the icon assets referenced in `tauri.conf.json`. Generate them
+from any square source PNG (≥ 512×512):
+
+```powershell
+cd ..\desktop
+pnpm dlx @tauri-apps/cli icon path\to\logo.png   # writes desktop\icons\
+```
+
+### 3. Build the installer
+
+```powershell
+cd desktop
+pnpm dlx @tauri-apps/cli build
+```
+
+Tauri automatically builds the frontend (`beforeBuildCommand` runs
+`pnpm --dir ../frontend build`), compiles the Rust shell, and emits installers:
+
+| Format | Output path |
+| ------ | ----------- |
+| MSI (WiX)  | `desktop\target\release\bundle\msi\ADHDer_0.1.0_x64_en-US.msi` |
+| NSIS setup | `desktop\target\release\bundle\nsis\ADHDer_0.1.0_x64-setup.exe` |
+
+Distribute either installer. On launch the shell spawns the bundled
+`adhder-backend` sidecar and loads the packaged frontend in WebView2. See
+[`desktop/README.md`](desktop/README.md) for more detail.
 
 ## Features
 
-- **Dashboard** — large live clock (12/24h, seconds, fullscreen), analog clock, daily focus stats, quote/weather placeholders.
-- **Pomodoro** — configurable work/break durations, progress ring, start/pause/resume/stop/skip, window color flash + sound + notification on completion, per-task linking, statistics.
-- **Tasks** — 3-column Kanban (To Do / Currently Working / Finished) with drag-and-drop, priorities, due dates, tags, estimated/completed pomodoros, search and filters.
+- **Dashboard** — a calm, centered live clock (12/24h, seconds) with a subtle analog clock, the current task, today's focus progress, and a distraction-free full-screen **Focus Mode**.
+- **Pomodoro** — configurable work/break durations, progress ring, start/pause/resume/stop/skip, a gentle window color **fade** + sound + notification on completion, per-task linking, statistics.
+- **Tasks** — 3-column board (To Do / Currently Working / Finished) with drag-and-drop, floating cards, priority dots, due dates, tags, estimated/completed pomodoros, search and filters.
 - **Planner** — month/week/day calendar; entries are the same records as the Task Board (bidirectional sync); completion reflects across both.
 - **Notes** — Markdown notebook with live/split preview (GFM tables, checkboxes, code, math via KaTeX), search, tags and autosave.
 - **Settings** — theme (light/dark/system), clock format, Pomodoro durations, completion color, notification sound, autosave interval, data locations.
