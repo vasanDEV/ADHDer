@@ -131,7 +131,8 @@ pnpm dlx @tauri-apps/cli build
 ```
 
 Tauri automatically builds the frontend (`beforeBuildCommand` runs
-`pnpm --dir ../frontend build`), compiles the Rust shell, and emits installers:
+`pnpm --dir frontend build` from the project root), compiles the Rust shell,
+and emits installers:
 
 | Format | Output path |
 | ------ | ----------- |
