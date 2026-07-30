@@ -1,9 +1,19 @@
-import { makeStyles, tokens } from "@fluentui/react-components";
+import {
+  makeStyles,
+  Toast,
+  ToastBody,
+  Toaster,
+  ToastTitle,
+  tokens,
+  useId,
+  useToastController,
+} from "@fluentui/react-components";
 import { useCallback, useEffect } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 
 import { CompletionFlash } from "@/components/pomodoro/CompletionFlash";
 import { NavBar } from "@/components/layout/NavBar";
+import { setApiErrorListener } from "@/services/api";
 import { useInterval } from "@/hooks/useInterval";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useSettingsStore } from "@/stores/useSettingsStore";
@@ -42,6 +52,23 @@ export function AppShell() {
   const loadTasks = useTaskStore((s) => s.load);
 
   const ui = useUiStore();
+
+  const toasterId = useId("adhder-toaster");
+  const { dispatchToast } = useToastController(toasterId);
+
+  // Surface API failures as unobtrusive toasts instead of silently swallowing.
+  useEffect(() => {
+    setApiErrorListener((error) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Couldn't save changes</ToastTitle>
+          <ToastBody>{error.message}</ToastBody>
+        </Toast>,
+        { intent: "error" },
+      );
+    });
+    return () => setApiErrorListener(null);
+  }, [dispatchToast]);
 
   // Initial data load.
   useEffect(() => {
@@ -83,6 +110,7 @@ export function AppShell() {
         <Outlet />
       </main>
       <CompletionFlash />
+      <Toaster toasterId={toasterId} position="bottom-end" />
     </div>
   );
 }

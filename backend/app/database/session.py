@@ -16,7 +16,9 @@ _settings = get_settings()
 
 engine: Engine = create_engine(
     _settings.database_url,
-    echo=_settings.debug,
+    # SQL statement echo is very noisy; request-level logging (see main.py)
+    # provides enough visibility without flooding the log file.
+    echo=False,
     connect_args={"check_same_thread": False},
     future=True,
 )
