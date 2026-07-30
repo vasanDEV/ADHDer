@@ -20,7 +20,10 @@ desktop/     Tauri v2 shell (WebView2) that hosts the frontend and spawns the ba
 
 ## Prerequisites
 
-- Python 3.11+ (3.12 recommended)
+- **Python 3.11–3.13** (3.12 recommended). Python **3.14 is not yet supported** —
+  some pinned dependencies (e.g. `pydantic-core`) have no prebuilt wheels for it,
+  so pip would try to compile them from Rust source and fail unless you have the
+  MSVC C++ toolchain installed. See [Troubleshooting](#troubleshooting).
 - Node.js 18+ and `pnpm`
 - **Desktop shell / installer (Windows only):**
   - [Rust](https://www.rust-lang.org/tools/install) (stable, via `rustup`)
@@ -128,7 +131,8 @@ pnpm dlx @tauri-apps/cli build
 ```
 
 Tauri automatically builds the frontend (`beforeBuildCommand` runs
-`pnpm --dir ../frontend build`), compiles the Rust shell, and emits installers:
+`pnpm --dir frontend build` from the project root), compiles the Rust shell,
+and emits installers:
 
 | Format | Output path |
 | ------ | ----------- |
@@ -150,3 +154,75 @@ Distribute either installer. On launch the shell spawns the bundled
 
 Keyboard shortcuts: `Ctrl+N` new task, `Ctrl+Shift+N` new note, `Ctrl+S` save,
 `Ctrl+F` search, `Space` start/pause timer.
+
+## Troubleshooting
+
+### `Failed building wheel for pydantic-core` / `error: linker link.exe not found`
+
+This happens when the backend virtualenv uses a **Python version that has no
+prebuilt wheels** for the pinned dependencies (most commonly **Python 3.14**).
+pip then tries to build `pydantic-core` from Rust source, which needs the MSVC
+linker (`link.exe`) that isn't installed by default.
+
+**Fix (recommended):** recreate the venv with Python 3.11–3.13:
+
+```powershell
+Remove-Item -Recurse -Force .venv
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt pyinstaller
+```
+
+Check the interpreter version at any time with `python --version`.
+
+**Alternative:** stay on Python 3.14 and install the
+[Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+("Desktop development with C++") plus Rust, so the from-source build can link.
+This is slower and heavier than simply using Python 3.12.
+
+### `failed to run 'cargo metadata' ... program not found` (during `tauri build`)
+
+Tauri compiles the desktop shell with Rust, so **Cargo/Rust must be installed and
+on your PATH**. Install it with [rustup](https://rustup.rs) (or
+`winget install Rustlang.Rustup`), choosing the default
+`stable-x86_64-pc-windows-msvc` toolchain, then **open a new terminal** so
+`%USERPROFILE%\.cargo\bin` is on PATH and verify:
+
+```powershell
+cargo --version
+rustc --version
+```
+
+Then re-run `pnpm dlx @tauri-apps/cli build`. If the Rust build later fails with
+`error: linker link.exe not found`, install the
+[Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+("Desktop development with C++") and rebuild.
+
+### `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` / `Lockfile failed supply-chain policy check`
+
+Some pnpm installs enforce a `minimumReleaseAge` supply-chain policy that rejects
+dependencies published within a recent cutoff window. Freshly published
+*transitive* deps (e.g. `postcss`, `brace-expansion`) can trip this even though
+they are fine. The repo ships `frontend/.npmrc` with `minimum-release-age=0` to
+opt out for this project; if you still hit it (e.g. a stricter global policy),
+disable it explicitly:
+
+```powershell
+pnpm config set minimum-release-age 0
+```
+
+### `ERR_PNPM_IGNORED_BUILDS: Ignored build scripts: esbuild`
+
+Newer pnpm blocks dependency build scripts by default and turns this into a hard
+error. The repo allows the one script it needs (esbuild, used by Vite) via
+`frontend/pnpm-workspace.yaml`:
+
+```yaml
+allowBuilds:
+  esbuild: true
+```
+
+`allowBuilds` is the current setting (pnpm 10.26+ and v11); it replaced the older
+`onlyBuiltDependencies` array, which pnpm v11 no longer reads. If you still hit
+the error, run `pnpm approve-builds` in `frontend/` and choose `esbuild`.

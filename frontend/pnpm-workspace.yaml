@@ -1,0 +1,8 @@
+# pnpm settings (the "pnpm" field in package.json is ignored by newer pnpm).
+# Allow esbuild — pulled in by Vite — to run its install script, otherwise pnpm
+# aborts with ERR_PNPM_IGNORED_BUILDS.
+#
+# `allowBuilds` is the current setting (pnpm 10.26+ and v11). It replaces the
+# older `onlyBuiltDependencies`, which pnpm v11 no longer reads.
+allowBuilds:
+  esbuild: true
