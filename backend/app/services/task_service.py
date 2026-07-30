@@ -49,7 +49,7 @@ class TaskService:
             tags=_tags_to_str(payload.tags),
             position=self.repo.next_position(payload.status),
         )
-        self._sync_completion(task)
+        self._apply_completion(task)
         self.repo.add(task)
         self.repo.commit()
         self.repo.db.refresh(task)
@@ -62,15 +62,28 @@ class TaskService:
         if "tags" in data:
             task.tags = _tags_to_str(data.pop("tags"))
 
-        # If the column changes explicitly, append to end of the new column.
-        if "status" in data and data["status"] is not None and data["status"] != task.status:
-            task.status = data.pop("status")
-            task.position = self.repo.next_position(task.status)
+        # Resolve status/completed intent. Status is authoritative; a `completed`
+        # flag (e.g. a checkbox) is mapped to done/todo. Handling them here means
+        # a finished task can be moved back to any column.
+        new_status = data.pop("status", None)
+        new_completed = data.pop("completed", None)
+
+        if new_status is not None and new_status != task.status:
+            task.status = new_status
+            task.position = self.repo.next_position(new_status)
+
+        if new_completed is not None:
+            if new_completed and task.status != TaskStatus.DONE:
+                task.status = TaskStatus.DONE
+                task.position = self.repo.next_position(TaskStatus.DONE)
+            elif not new_completed and task.status == TaskStatus.DONE:
+                task.status = TaskStatus.TODO
+                task.position = self.repo.next_position(TaskStatus.TODO)
 
         for field_name, value in data.items():
             setattr(task, field_name, value)
 
-        self._sync_completion(task)
+        self._apply_completion(task)
         self.repo.commit()
         self.repo.db.refresh(task)
         return task
@@ -93,7 +106,7 @@ class TaskService:
         for index, sibling in enumerate(siblings):
             sibling.position = index
 
-        self._sync_completion(task)
+        self._apply_completion(task)
         self.repo.commit()
         self.repo.db.refresh(task)
         return task
@@ -104,10 +117,14 @@ class TaskService:
         self.repo.commit()
 
     @staticmethod
-    def _sync_completion(task: Task) -> None:
-        """Keep ``status``/``completed``/``completed_at`` consistent."""
-        if task.status == TaskStatus.DONE or task.completed:
-            task.status = TaskStatus.DONE
+    def _apply_completion(task: Task) -> None:
+        """Derive ``completed``/``completed_at`` from the (authoritative) status.
+
+        This intentionally does NOT let a lingering ``completed`` flag pin the
+        status to done, so a finished task can be dragged/moved back to any
+        column.
+        """
+        if task.status == TaskStatus.DONE:
             task.completed = True
             if task.completed_at is None:
                 task.completed_at = utcnow()

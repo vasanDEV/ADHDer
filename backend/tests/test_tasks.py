@@ -50,6 +50,35 @@ def test_move_reorders_positions(client: TestClient) -> None:
     assert a_after["status"] == "todo"
 
 
+def test_finished_task_can_move_back(client: TestClient) -> None:
+    task = client.post("/api/tasks", json={"title": "Reopen me"}).json()
+    # Mark finished.
+    done = client.patch(f"/api/tasks/{task['id']}", json={"status": "done"}).json()
+    assert done["status"] == "done" and done["completed"] is True
+
+    # Move it back to To Do via a status change.
+    reopened = client.patch(f"/api/tasks/{task['id']}", json={"status": "todo"}).json()
+    assert reopened["status"] == "todo"
+    assert reopened["completed"] is False
+    assert reopened["completed_at"] is None
+
+    # And via the drag-and-drop move endpoint out of Finished.
+    client.patch(f"/api/tasks/{task['id']}", json={"status": "done"})
+    moved = client.post(
+        f"/api/tasks/{task['id']}/move", json={"status": "in_progress", "position": 0}
+    ).json()
+    assert moved["status"] == "in_progress"
+    assert moved["completed"] is False
+
+
+def test_completed_flag_false_reopens_task(client: TestClient) -> None:
+    task = client.post("/api/tasks", json={"title": "Toggle"}).json()
+    client.patch(f"/api/tasks/{task['id']}", json={"completed": True})
+    reopened = client.patch(f"/api/tasks/{task['id']}", json={"completed": False}).json()
+    assert reopened["completed"] is False
+    assert reopened["status"] != "done"
+
+
 def test_delete_task(client: TestClient) -> None:
     task = client.post("/api/tasks", json={"title": "Temp"}).json()
     assert client.delete(f"/api/tasks/{task['id']}").status_code == 204

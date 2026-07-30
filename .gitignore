@@ -26,3 +26,6 @@ desktop/icons/
 .idea/
 .vscode/
 *.log
+
+# TypeScript incremental build info
+*.tsbuildinfo
