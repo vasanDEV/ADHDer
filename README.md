@@ -198,3 +198,20 @@ Then re-run `pnpm dlx @tauri-apps/cli build`. If the Rust build later fails with
 `error: linker link.exe not found`, install the
 [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 ("Desktop development with C++") and rebuild.
+
+### `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` / `Lockfile failed supply-chain policy check`
+
+Some pnpm installs enforce a `minimumReleaseAge` supply-chain policy that rejects
+dependencies published within a recent cutoff window. Freshly published
+*transitive* deps (e.g. `postcss`, `brace-expansion`) can trip this even though
+they are fine. The repo ships `frontend/.npmrc` with `minimum-release-age=0` to
+opt out for this project; if you still hit it (e.g. a stricter global policy),
+disable it explicitly:
+
+```powershell
+pnpm config set minimum-release-age 0
+```
+
+> The related warning `The "pnpm" field in package.json is no longer read`
+> (about `onlyBuiltDependencies`) is harmless. If a later step fails because
+> esbuild's build script was skipped, run `pnpm rebuild esbuild` in `frontend/`.
