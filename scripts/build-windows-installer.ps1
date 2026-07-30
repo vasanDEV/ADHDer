@@ -26,8 +26,17 @@
 .PARAMETER Bundle
     Which installers to produce: both (default), msi, or nsis.
 
+.PARAMETER CondaEnv
+    Build the backend inside this conda environment (via `conda run`) instead of
+    a local .venv. If omitted, the currently activated conda env is used
+    automatically; otherwise the script falls back to backend\.venv.
+
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1
+
+.EXAMPLE
+    # use a specific conda environment for the Python sidecar
+    powershell -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1 -CondaEnv neww
 
 .EXAMPLE
     # fast rebuild after only touching frontend code
@@ -39,7 +48,8 @@ param(
     [switch]$SkipIcons,
     [string]$SourceIcon,
     [ValidateSet('both', 'msi', 'nsis')]
-    [string]$Bundle = 'both'
+    [string]$Bundle = 'both',
+    [string]$CondaEnv
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,29 +92,70 @@ if ($SkipBackend) {
 }
 else {
     Write-Step 'Building backend sidecar (PyInstaller)'
-    Push-Location $backend
-    try {
-        if (-not (Test-Path '.venv')) {
-            Write-Info 'Creating virtualenv (.venv)'
-            # Prefer Python 3.12 — some pinned deps have no wheels for 3.14.
-            if (Get-Command py -ErrorAction SilentlyContinue) {
-                & py -3.12 -m venv .venv
+
+    # Decide which Python environment to use: an explicit/active conda env, or a
+    # local .venv (created on demand).
+    $condaName = $CondaEnv
+    if (-not $condaName -and $env:CONDA_PREFIX -and $env:CONDA_DEFAULT_ENV) {
+        $condaName = $env:CONDA_DEFAULT_ENV
+    }
+    $useConda = [bool]$condaName
+
+    if ($useConda) {
+        if (-not (Get-Command conda -ErrorAction SilentlyContinue)) {
+            Fail "Conda env '$condaName' requested but 'conda' is not on PATH."
+        }
+        Write-Info "Backend environment: conda env '$condaName'"
+    }
+    else {
+        if (-not (Test-Path (Join-Path $backend '.venv'))) {
+            Write-Info 'Creating virtualenv (backend\.venv)'
+            Push-Location $backend
+            try {
+                # Prefer Python 3.12 — some pinned deps have no wheels for 3.14.
+                if (Get-Command py -ErrorAction SilentlyContinue) { & py -3.12 -m venv .venv }
+                else { & python -m venv .venv }
             }
-            else {
-                & python -m venv .venv
-            }
+            finally { Pop-Location }
         }
         $venvPy = Join-Path $backend '.venv\Scripts\python.exe'
         if (-not (Test-Path $venvPy)) { Fail "virtualenv python not found at $venvPy" }
+        Write-Info "Backend environment: $venvPy"
+    }
+
+    # Run a python command in the chosen environment.
+    function Invoke-Py {
+        param([string[]]$PyArgs)
+        if ($useConda) { & conda run --no-capture-output -n $condaName python @PyArgs }
+        else { & $venvPy @PyArgs }
+        if ($LASTEXITCODE -ne 0) { Fail "python $($PyArgs -join ' ') failed." }
+    }
+
+    Push-Location $backend
+    try {
+        # Soft check: warn on Python 3.14+, which lacks prebuilt wheels for some
+        # pinned deps (pydantic-core) and would need a C/Rust toolchain.
+        try {
+            $verCode = "import sys;print(str(sys.version_info[0])+'.'+str(sys.version_info[1]))"
+            $pyVer = if ($useConda) { & conda run --no-capture-output -n $condaName python -c $verCode }
+            else { & $venvPy -c $verCode }
+            if ($pyVer) {
+                Write-Info "Python: $($pyVer.Trim())"
+                $parts = $pyVer.Trim().Split('.')
+                if ([int]$parts[0] -eq 3 -and [int]$parts[1] -ge 14) {
+                    Write-Host "  WARNING: Python $($pyVer.Trim()) may lack prebuilt wheels (pydantic-core). Use a 3.11-3.13 env if pip fails." -ForegroundColor Yellow
+                }
+            }
+        }
+        catch { }
 
         Write-Info 'Installing backend deps + pyinstaller'
-        & $venvPy -m pip install --upgrade pip | Out-Null
-        & $venvPy -m pip install -r requirements.txt pyinstaller | Out-Null
+        Invoke-Py @('-m', 'pip', 'install', '--upgrade', 'pip')
+        Invoke-Py @('-m', 'pip', 'install', '-r', 'requirements.txt', 'pyinstaller')
 
         Write-Info 'Packaging backend -> dist\adhder-backend.exe'
-        & $venvPy -m PyInstaller --name adhder-backend --onefile --noconfirm `
-            --distpath dist --workpath build --specpath build run_server.py
-        if ($LASTEXITCODE -ne 0) { Fail 'PyInstaller failed.' }
+        Invoke-Py @('-m', 'PyInstaller', '--name', 'adhder-backend', '--onefile', '--noconfirm',
+            '--distpath', 'dist', '--workpath', 'build', '--specpath', 'build', 'run_server.py')
     }
     finally { Pop-Location }
 

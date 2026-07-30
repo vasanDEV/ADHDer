@@ -106,9 +106,15 @@ Useful switches:
 | Switch | Purpose |
 | ------ | ------- |
 | `-SkipBackend` | Reuse the existing sidecar and only rebuild the frontend + shell (fast iteration after frontend-only changes). |
+| `-CondaEnv <name>` | Build the Python sidecar in a conda env instead of a `.venv`. |
 | `-SourceIcon <png>` | Generate the app icons from your own square PNG. |
 | `-SkipIcons` | Never regenerate icons. |
 | `-Bundle msi` / `-Bundle nsis` | Build only one installer format. |
+
+> **Conda users:** if you've already `conda activate`d your environment, the
+> script uses it automatically for the backend build. You can also name it
+> explicitly, e.g. `... build-windows-installer.ps1 -CondaEnv neww`. Make sure
+> that env uses Python 3.11–3.13.
 
 For a quick rebuild after tweaking the UI:
 
