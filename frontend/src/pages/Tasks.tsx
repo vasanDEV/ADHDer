@@ -1,16 +1,20 @@
 import {
-  Button,
-  Input,
-  makeStyles,
-  Tab,
-  TabList,
-} from "@fluentui/react-components";
+  closestCorners,
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { Button, Input, makeStyles, Tab, TabList } from "@fluentui/react-components";
 import { Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { KanbanColumn } from "@/components/tasks/KanbanColumn";
+import { TaskCardView } from "@/components/tasks/TaskCardView";
 import { TaskDialog } from "@/components/tasks/TaskDialog";
-import type { TaskDragItem } from "@/components/tasks/dnd";
 import { Page } from "@/components/layout/Page";
 import { useTaskStore } from "@/stores/useTaskStore";
 import { useUiStore } from "@/stores/useUiStore";
@@ -53,13 +57,19 @@ export function TasksPage() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [activeId, setActiveId] = useState<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    // A small activation distance so clicking the edit/delete buttons and cards
+    // still works; drag only starts after a deliberate move.
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // Global "new task" shortcut.
   useEffect(() => {
     if (newTaskNonce > 0) {
       setEditing(null);
@@ -98,8 +108,36 @@ export function TasksPage() {
   const byStatus = (status: TaskStatus) =>
     filtered.filter((t) => t.status === status).sort((a, b) => a.position - b.position);
 
-  const handleDrop = (item: TaskDragItem, status: TaskStatus, index: number) => {
-    void move(item.id, status, index);
+  const activeTask = activeId != null ? tasks.find((t) => t.id === activeId) ?? null : null;
+
+  const onDragStart = (event: DragStartEvent) => setActiveId(Number(event.active.id));
+
+  const onDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const draggedId = Number(active.id);
+    if (over.id === active.id) return; // dropped in place
+
+    let targetStatus: TaskStatus;
+    let targetIndex: number;
+
+    if (typeof over.id === "string" && over.id.startsWith("col:")) {
+      // Dropped on an (empty) column area → append to the end.
+      targetStatus = over.id.slice(4) as TaskStatus;
+      targetIndex = byStatus(targetStatus).filter((t) => t.id !== draggedId).length;
+    } else {
+      // Dropped onto another card → insert at that card's position.
+      const overTask = tasks.find((t) => t.id === Number(over.id));
+      if (!overTask) return;
+      targetStatus = overTask.status;
+      const siblings = byStatus(targetStatus).filter((t) => t.id !== draggedId);
+      const idx = siblings.findIndex((t) => t.id === Number(over.id));
+      targetIndex = idx < 0 ? siblings.length : idx;
+    }
+
+    void move(draggedId, targetStatus, targetIndex);
   };
 
   const submit = (payload: TaskCreate) => {
@@ -113,7 +151,7 @@ export function TasksPage() {
   return (
     <Page
       title="Tasks"
-      subtitle="Drag cards between columns to update their status."
+      subtitle="Drag cards to reorder or change status."
       actions={
         <Button
           appearance="primary"
@@ -151,31 +189,36 @@ export function TasksPage() {
           </TabList>
         </div>
 
-        <div className={styles.board}>
-          {COLUMNS.map((col) => (
-            <KanbanColumn
-              key={col.status}
-              status={col.status}
-              title={col.title}
-              emptyLabel={col.emptyLabel}
-              tasks={byStatus(col.status)}
-              onEdit={(t) => {
-                setEditing(t);
-                setDialogOpen(true);
-              }}
-              onDelete={(id) => void remove(id)}
-              onDropInColumn={handleDrop}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => setActiveId(null)}
+        >
+          <div className={styles.board}>
+            {COLUMNS.map((col) => (
+              <KanbanColumn
+                key={col.status}
+                status={col.status}
+                title={col.title}
+                emptyLabel={col.emptyLabel}
+                tasks={byStatus(col.status)}
+                onEdit={(t) => {
+                  setEditing(t);
+                  setDialogOpen(true);
+                }}
+                onDelete={(id) => void remove(id)}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeTask ? <TaskCardView task={activeTask} overlay /> : null}
+          </DragOverlay>
+        </DndContext>
       </div>
 
-      <TaskDialog
-        open={dialogOpen}
-        task={editing}
-        onOpenChange={setDialogOpen}
-        onSubmit={submit}
-      />
+      <TaskDialog open={dialogOpen} task={editing} onOpenChange={setDialogOpen} onSubmit={submit} />
     </Page>
   );
 }
