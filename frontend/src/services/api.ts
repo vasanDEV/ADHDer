@@ -1,9 +1,14 @@
 // Minimal typed fetch wrapper around the local REST API.
 //
-// In development requests go through the Vite proxy (same-origin "/api").
-// Inside the desktop shell the same relative paths hit the bundled backend.
-
-const BASE = "";
+// In development, requests use same-origin relative paths so they flow through
+// the Vite dev proxy (see vite.config.ts). In a production/packaged build there
+// is no proxy — the frontend is served from the WebView2 origin
+// (tauri.localhost) — so we must call the backend at its absolute local URL.
+//
+// Override with VITE_API_BASE_URL at build time if the backend port changes.
+const BASE = import.meta.env.DEV
+  ? ""
+  : (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8756");
 
 export class ApiError extends Error {
   constructor(

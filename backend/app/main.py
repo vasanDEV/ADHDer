@@ -36,10 +36,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# The backend binds to 127.0.0.1 only (never exposed off-machine), and the
+# packaged desktop shell serves the UI from a WebView origin such as
+# ``http://tauri.localhost`` (Windows) or ``tauri://localhost``. Rather than
+# enumerate every platform's WebView origin, allow any origin — safe here
+# because the server is local-only and uses no cookies/credentials.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
