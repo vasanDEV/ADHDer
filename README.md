@@ -20,7 +20,10 @@ desktop/     Tauri v2 shell (WebView2) that hosts the frontend and spawns the ba
 
 ## Prerequisites
 
-- Python 3.11+ (3.12 recommended)
+- **Python 3.11–3.13** (3.12 recommended). Python **3.14 is not yet supported** —
+  some pinned dependencies (e.g. `pydantic-core`) have no prebuilt wheels for it,
+  so pip would try to compile them from Rust source and fail unless you have the
+  MSVC C++ toolchain installed. See [Troubleshooting](#troubleshooting).
 - Node.js 18+ and `pnpm`
 - **Desktop shell / installer (Windows only):**
   - [Rust](https://www.rust-lang.org/tools/install) (stable, via `rustup`)
@@ -150,3 +153,29 @@ Distribute either installer. On launch the shell spawns the bundled
 
 Keyboard shortcuts: `Ctrl+N` new task, `Ctrl+Shift+N` new note, `Ctrl+S` save,
 `Ctrl+F` search, `Space` start/pause timer.
+
+## Troubleshooting
+
+### `Failed building wheel for pydantic-core` / `error: linker link.exe not found`
+
+This happens when the backend virtualenv uses a **Python version that has no
+prebuilt wheels** for the pinned dependencies (most commonly **Python 3.14**).
+pip then tries to build `pydantic-core` from Rust source, which needs the MSVC
+linker (`link.exe`) that isn't installed by default.
+
+**Fix (recommended):** recreate the venv with Python 3.11–3.13:
+
+```powershell
+Remove-Item -Recurse -Force .venv
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt pyinstaller
+```
+
+Check the interpreter version at any time with `python --version`.
+
+**Alternative:** stay on Python 3.14 and install the
+[Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+("Desktop development with C++") plus Rust, so the from-source build can link.
+This is slower and heavier than simply using Python 3.12.
