@@ -20,12 +20,43 @@ export class ApiError extends Error {
   }
 }
 
+// Optional global hook so the UI can surface failures (e.g. as a toast) without
+// every caller needing to handle errors. Registered once by the app shell.
+type ApiErrorListener = (error: Error, context: { method: string; path: string }) => void;
+let errorListener: ApiErrorListener | null = null;
+
+export function setApiErrorListener(listener: ApiErrorListener | null): void {
+  errorListener = listener;
+}
+
+function reportError(error: Error, method: string, path: string): void {
+  // Always log to the console (visible in WebView2 devtools) …
+  console.error(`[api] ${method} ${path} failed:`, error);
+  // … and notify the UI listener, if any.
+  try {
+    errorListener?.(error, { method, path });
+  } catch {
+    // never let error reporting throw
+  }
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    // fetch throws only on network-level failures (e.g. backend not running).
+    const err = new ApiError(
+      `Cannot reach the backend at ${BASE || "the dev proxy"}. Is it running?`,
+      0,
+    );
+    reportError(err, method, path);
+    throw err;
+  }
 
   if (!res.ok) {
     let detail = res.statusText;
@@ -35,7 +66,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     } catch {
       // ignore JSON parse failures on error bodies
     }
-    throw new ApiError(detail, res.status);
+    const err = new ApiError(detail, res.status);
+    reportError(err, method, path);
+    throw err;
   }
 
   if (res.status === 204) {

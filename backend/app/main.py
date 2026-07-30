@@ -10,22 +10,30 @@ no cloud dependency and stores everything in a local SQLite database.
 
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.config import get_settings
 from app.database.session import init_db
+from app.logging_config import configure_logging
 
 settings = get_settings()
+logger = logging.getLogger("adhder")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    log_path = configure_logging()
+    logger.info("Starting %s API on %s:%s", settings.app_name, settings.host, settings.port)
+    logger.info("SQLite database: %s", settings.database_path)
+    logger.info("Logging to: %s", log_path)
     # Ensure the SQLite schema exists before serving requests.
     init_db()
+    logger.info("Database ready — accepting requests")
     yield
 
 
@@ -48,6 +56,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log every request so failures are visible in the log file."""
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Unhandled error: %s %s", request.method, request.url.path)
+        raise
+    logger.info("%s %s -> %s", request.method, request.url.path, response.status_code)
+    return response
+
 
 app.include_router(api_router)
 

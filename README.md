@@ -189,6 +189,23 @@ Distribute either installer. On launch the shell spawns the bundled
 Keyboard shortcuts: `Ctrl+N` new task, `Ctrl+Shift+N` new note, `Ctrl+S` save,
 `Ctrl+F` search, `Space` start/pause timer.
 
+## Logs & diagnosing runtime issues
+
+The app writes logs to your home folder (`~/.adhder/`, i.e.
+`C:\Users\<you>\.adhder\` on Windows):
+
+| File | What it contains |
+| ---- | ---------------- |
+| `adhder.log` | Backend startup, the resolved DB path, and every API request (e.g. `POST /api/tasks -> 201`) and error. |
+| `desktop.log` | Desktop shell: whether the backend sidecar spawned, its output, and if it exited/crashed. |
+| `adhder.db` | The SQLite database. |
+
+If tasks/notes/settings don't persist:
+
+1. Open **http://127.0.0.1:8756/health** while the app is running — it should return `{"status":"ok"}`. If it doesn't load, the backend isn't running (check `desktop.log`).
+2. Try the action again and look at `adhder.log`: if you see the matching request line, the backend received it; if not, the UI couldn't reach the backend (the app now also shows an error toast in that case).
+3. `desktop.log` will show `backend sidecar spawned`, or the spawn/exit error if it failed.
+
 ## Troubleshooting
 
 ### `Failed building wheel for pydantic-core` / `error: linker link.exe not found`
