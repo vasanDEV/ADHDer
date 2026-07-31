@@ -180,6 +180,8 @@ After Rust changes that affect the Android `.so`:
 | Symptom | Fix |
 |---------|-----|
 | `SDK location not found` | Create `apps/android/android/local.properties` with `sdk.dir=/path/to/Android/Sdk` |
+| `does not provide … JAVA_COMPILER` | Install a full JDK (not JRE). Prefer Android Studio’s embedded JBR, or `sudo apt install openjdk-17-jdk`. Set `JAVA_HOME` to that JDK, then re-run. |
+| AsyncStorage / Kotlin version warnings | Don’t need AsyncStorage for v0.1; keep Kotlin at the RN template version |
 | `libadhder_android.so` missing / mock banner | Run `./scripts/build-android-native.sh` with NDK installed |
 | Metro port busy | `npx react-native start --reset-cache` |
 | Emulator can’t reach Metro | Ensure `adb reverse tcp:8081 tcp:8081` |
