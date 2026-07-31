@@ -1,0 +1,16 @@
+[package]
+name = "adhder-search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+adhder-core = { workspace = true }
+adhder-db = { workspace = true }
+serde = { workspace = true }
+sqlx = { workspace = true }
+
+[dev-dependencies]
+adhder-notes = { workspace = true }
+adhder-tasks = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

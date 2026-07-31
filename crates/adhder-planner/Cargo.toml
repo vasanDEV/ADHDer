@@ -1,0 +1,15 @@
+[package]
+name = "adhder-planner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+adhder-core = { workspace = true }
+adhder-db = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+sqlx = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

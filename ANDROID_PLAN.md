@@ -1,6 +1,6 @@
 # ADHDer — Android Development Plan
 
-**Status:** Implementation plan (not product redesign)  
+**Status:** v0.1 implementation in progress on `android-build/v0.1`  
 **Audience:** Engineering and AI coding agents  
 **Base documents:** `APP.md`, `DESIGN_SYSTEM.md`, `AGENTS.md`, `RUST_ARCHITECTURE.md`  
 **Visual reference:** `Designs/Figma_inspiration.png`, `Designs/app_icon.png`
@@ -11,13 +11,13 @@ This plan scopes the Android Phone + Tablet adaptation of ADHDer against the loc
 
 ## 1. Current state
 
-| Asset | Status on `main` |
+| Asset | Status on `android-build/v0.1` |
 |-------|------------------|
 | Product / design / architecture docs | Present and canonical |
 | Design inspiration + app icon | Present under `Designs/` |
-| `apps/android/` (React Native) | **Missing** |
-| `crates/` Cargo workspace + Rust core | **Missing** |
-| `apps/desktop/` Tauri + React | **Missing on `main`** |
+| `apps/android/` (React Native) | **Scaffolded v0.1** — screens + Kotlin bridge |
+| `crates/` Cargo workspace + Rust core | **Implemented** — tests via `cargo test --workspace` |
+| Android Studio guide | `apps/android/README.md` |
 
 Historical Windows work exists on `windows-build/v1.0` / `cursor/build-adhder-app-d624` (Tauri shell + React UI + **Python FastAPI** backend). That stack is **not** the target. Android must be built on the locked architecture:
 
