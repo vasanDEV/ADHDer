@@ -23,7 +23,9 @@ import {colors, radii, space, type} from '../theme/tokens';
 
 type Item = {
   id: string;
+  task_id?: string;
   title: string;
+  column?: string;
   start_time?: string | null;
   end_time?: string | null;
 };
@@ -53,7 +55,8 @@ export function PlannerScreen() {
   const addItem = async () => {
     const title = draft.trim();
     if (!title) return;
-    await invoke('planner.create', {date: dateKey, title});
+    // Schedules a Task for this date — appears in Tasks tab too.
+    await invoke('planner.schedule', {date: dateKey, title});
     setDraft('');
     setItems(await invoke('planner.list', {date: dateKey}));
   };
@@ -111,23 +114,28 @@ export function PlannerScreen() {
           <Text style={styles.sheetTitle}>{format(selected, 'EEEE, MMM d')}</Text>
           <ScrollView style={{maxHeight: 180}}>
             {items.length === 0 ? (
-              <Text style={styles.empty}>No plans for this day</Text>
+              <Text style={styles.empty}>No tasks planned for this day</Text>
             ) : (
               items.map(item => (
                 <View key={item.id} style={styles.agendaRow}>
                   <Text style={styles.agendaTime}>
-                    {item.start_time ?? '—'}
+                    {item.column === 'finished'
+                      ? 'Done'
+                      : item.column === 'working'
+                        ? 'Work'
+                        : 'To Do'}
                   </Text>
                   <Text style={styles.agendaTitle}>{item.title}</Text>
                 </View>
               ))
             )}
           </ScrollView>
+          <Text style={styles.hint}>Adds a task dated for this day</Text>
           <View style={styles.composer}>
             <TextInput
               value={draft}
               onChangeText={setDraft}
-              placeholder="Add agenda item"
+              placeholder="Add task for this day"
               placeholderTextColor={colors.textMuted}
               style={styles.input}
               onSubmitEditing={addItem}
@@ -197,6 +205,7 @@ const styles = StyleSheet.create({
     marginBottom: space.lg,
   },
   sheetTitle: {...type.title, color: colors.text, marginBottom: space.md},
+  hint: {...type.caption, color: colors.textMuted, marginBottom: space.sm},
   empty: {...type.body, color: colors.textMuted},
   agendaRow: {
     flexDirection: 'row',

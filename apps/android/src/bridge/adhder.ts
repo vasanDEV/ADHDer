@@ -30,7 +30,7 @@ const mockDb: {
       column: 'working',
       priority: 'high',
       is_focus: true,
-      due_date: null,
+      due_date: new Date().toISOString().slice(0, 10),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       position: 1,
@@ -76,8 +76,21 @@ function mockInvoke(command: string, payload: any): any {
   switch (command) {
     case 'ping':
       return {pong: true, version: '0.1.0-mock'};
-    case 'tasks.list':
-      return mockDb.tasks;
+    case 'tasks.list': {
+      const list = [...mockDb.tasks];
+      if (payload.sort === 'due_date' || payload.sort === 'due_date_asc') {
+        list.sort((a, b) =>
+          (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'),
+        );
+      } else if (payload.sort === 'due_date_desc') {
+        list.sort((a, b) =>
+          (b.due_date ?? '').localeCompare(a.due_date ?? ''),
+        );
+      }
+      return list;
+    }
+    case 'tasks.list_by_date':
+      return mockDb.tasks.filter(t => t.due_date === payload.date);
     case 'tasks.create': {
       const t = {
         id: `t-${Date.now()}`,
@@ -130,10 +143,16 @@ function mockInvoke(command: string, payload: any): any {
       return n;
     }
     case 'pomodoro.prepare': {
-      const duration = payload.duration_secs ?? 1500;
+      const kind = payload.kind ?? 'focus';
+      const defaults: Record<string, number> = {
+        focus: 25 * 60,
+        short_break: 5 * 60,
+        long_break: 15 * 60,
+      };
+      const duration = payload.duration_secs ?? defaults[kind] ?? 1500;
       mockDb.session = {
         id: `s-${Date.now()}`,
-        kind: payload.kind ?? 'focus',
+        kind,
         duration_secs: duration,
         remaining_secs: duration,
         status: 'idle',
@@ -162,7 +181,9 @@ function mockInvoke(command: string, payload: any): any {
         );
         if (mockDb.session.remaining_secs === 0) {
           mockDb.session.status = 'completed';
-          mockDb.stats.focus_sessions += 1;
+          if (mockDb.session.kind === 'focus') {
+            mockDb.stats.focus_sessions += 1;
+          }
         }
       }
       return mockDb.session;
@@ -172,20 +193,87 @@ function mockInvoke(command: string, payload: any): any {
         mockDb.session.remaining_secs = mockDb.session.duration_secs;
       }
       return mockDb.session;
+    case 'pomodoro.skip':
+    case 'pomodoro.complete_and_advance': {
+      const ended = {...mockDb.session, status: 'completed'};
+      const skipped = command === 'pomodoro.skip';
+      if (!skipped && ended.kind === 'focus') {
+        mockDb.stats.focus_sessions += 1;
+      }
+      const nextKind =
+        ended.kind === 'focus'
+          ? 'short_break'
+          : 'focus';
+      const defaults: Record<string, number> = {
+        focus: 25 * 60,
+        short_break: 5 * 60,
+        long_break: 15 * 60,
+      };
+      mockDb.session = {
+        id: `s-${Date.now()}`,
+        kind: nextKind,
+        duration_secs: defaults[nextKind],
+        remaining_secs: defaults[nextKind],
+        status: 'idle',
+        task_id: ended.task_id ?? null,
+        started_at: null,
+        completed_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      return {ended, next: mockDb.session, skipped};
+    }
     case 'pomodoro.active':
       return mockDb.session;
     case 'planner.list':
-      return mockDb.planner.filter(p => p.date === payload.date);
-    case 'planner.create': {
+      return mockDb.tasks
+        .filter(t => t.due_date === payload.date)
+        .map(t => ({
+          id: t.id,
+          task_id: t.id,
+          date: t.due_date,
+          title: t.title,
+          column: t.column,
+          notes: t.notes,
+          start_time: null,
+          end_time: null,
+        }));
+    case 'planner.create':
+    case 'planner.schedule': {
+      const t = {
+        id: `t-${Date.now()}`,
+        title: payload.title,
+        notes: payload.notes ?? '',
+        column: 'todo',
+        priority: 'none',
+        is_focus: false,
+        due_date: payload.date,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        position: mockDb.tasks.length + 1,
+      };
+      mockDb.tasks.push(t);
       const item = {
         id: `pl-${Date.now()}`,
-        ...payload,
+        date: payload.date,
+        title: payload.title,
         notes: payload.notes ?? '',
+        task_id: t.id,
+        start_time: payload.start_time ?? null,
+        end_time: payload.end_time ?? null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
       mockDb.planner.push(item);
-      return item;
+      return {
+        task: t,
+        item,
+        id: t.id,
+        task_id: t.id,
+        title: t.title,
+        date: t.due_date,
+        column: t.column,
+      };
     }
     case 'settings.get':
       return mockDb.prefs;

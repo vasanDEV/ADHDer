@@ -7,7 +7,7 @@ use adhder_core::{AdhderError, EntityId, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-pub use service::PomodoroService;
+pub use service::{CycleAdvance, PomodoroService};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,6 +43,22 @@ impl SessionKind {
             Self::ShortBreak => 5 * 60,
             Self::LongBreak => 15 * 60,
         }
+    }
+}
+
+/// Classic cycle: Focus → Short Break, and every `long_every` focuses → Long Break.
+/// Breaks always return to Focus. Default long break every 4 completed focuses.
+pub fn next_kind_after(completed: SessionKind, focuses_completed_in_cycle: u32) -> SessionKind {
+    const LONG_EVERY: u32 = 4;
+    match completed {
+        SessionKind::Focus => {
+            if focuses_completed_in_cycle > 0 && focuses_completed_in_cycle % LONG_EVERY == 0 {
+                SessionKind::LongBreak
+            } else {
+                SessionKind::ShortBreak
+            }
+        }
+        SessionKind::ShortBreak | SessionKind::LongBreak => SessionKind::Focus,
     }
 }
 

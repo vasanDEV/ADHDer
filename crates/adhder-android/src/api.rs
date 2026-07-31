@@ -2,7 +2,7 @@ use adhder_core::{AdhderError, EntityId, Result};
 use adhder_notes::{CreateNote, NoteFormat, UpdateNote};
 use adhder_planner::CreatePlannerItem;
 use adhder_pomodoro::SessionKind;
-use adhder_tasks::{CreateTask, KanbanColumn, TaskPriority, UpdateTask};
+use adhder_tasks::{CreateTask, KanbanColumn, TaskPriority, TaskSort, UpdateTask};
 use serde::Serialize;
 use serde_json::{json, Value};
 
@@ -68,12 +68,21 @@ async fn dispatch(rt: &AdhderRuntime, command: &str, p: Value) -> Result<Value> 
 
         // ---- Tasks ----
         "tasks.list" => {
-            let tasks = rt.tasks.list_all().await?;
+            let sort = match opt_str(&p, "sort") {
+                Some(s) => TaskSort::parse(&s)?,
+                None => TaskSort::Column,
+            };
+            let tasks = rt.tasks.list_sorted(sort).await?;
             Ok(serde_json::to_value(tasks).unwrap())
         }
         "tasks.list_by_column" => {
             let col = KanbanColumn::parse(req_str(&p, "column")?)?;
             let tasks = rt.tasks.list_by_column(col).await?;
+            Ok(serde_json::to_value(tasks).unwrap())
+        }
+        "tasks.list_by_date" => {
+            let date = req_str(&p, "date")?;
+            let tasks = rt.tasks.list_by_due_date(date).await?;
             Ok(serde_json::to_value(tasks).unwrap())
         }
         "tasks.create" => {
@@ -217,26 +226,80 @@ async fn dispatch(rt: &AdhderRuntime, command: &str, p: Value) -> Result<Value> 
             let id = EntityId::parse(req_str(&p, "id")?).map_err(AdhderError::Validation)?;
             Ok(serde_json::to_value(rt.pomodoro.reset(&id).await?).unwrap())
         }
+        "pomodoro.skip" => {
+            let id = EntityId::parse(req_str(&p, "id")?).map_err(AdhderError::Validation)?;
+            Ok(serde_json::to_value(rt.pomodoro.skip(&id).await?).unwrap())
+        }
+        "pomodoro.complete_and_advance" => {
+            let id = EntityId::parse(req_str(&p, "id")?).map_err(AdhderError::Validation)?;
+            Ok(serde_json::to_value(
+                rt.pomodoro.complete_and_advance(&id).await?,
+            )
+            .unwrap())
+        }
         "pomodoro.active" => Ok(serde_json::to_value(rt.pomodoro.get_active().await?).unwrap()),
 
-        // ---- Planner ----
+        // ---- Planner (schedules Tasks by due date) ----
         "planner.list" => {
+            // Agenda for a day = tasks due that day (Planner ↔ Tasks connection).
             let date = req_str(&p, "date")?;
-            Ok(serde_json::to_value(rt.planner.list_for_date(date).await?).unwrap())
+            let tasks = rt.tasks.list_by_due_date(date).await?;
+            let agenda: Vec<Value> = tasks
+                .into_iter()
+                .map(|t| {
+                    json!({
+                        "id": t.id,
+                        "task_id": t.id,
+                        "date": t.due_date,
+                        "title": t.title,
+                        "notes": t.notes,
+                        "column": t.column,
+                        "priority": t.priority,
+                        "is_focus": t.is_focus,
+                        "start_time": null,
+                        "end_time": null,
+                    })
+                })
+                .collect();
+            Ok(json!(agenda))
         }
-        "planner.create" => {
+        "planner.create" | "planner.schedule" => {
+            // Creating in Planner creates a Task dated for that day (and a linked agenda row).
+            let date = req_str(&p, "date")?.to_string();
+            let title = req_str(&p, "title")?.to_string();
+            let notes = opt_str(&p, "notes");
+            let task = rt
+                .tasks
+                .create(CreateTask {
+                    title: title.clone(),
+                    notes: notes.clone(),
+                    column: Some(KanbanColumn::Todo),
+                    priority: opt_i64(&p, "priority")
+                        .map(TaskPriority::from_i64)
+                        .transpose()?,
+                    due_date: Some(date.clone()),
+                })
+                .await?;
             let item = rt
                 .planner
                 .create(CreatePlannerItem {
-                    date: req_str(&p, "date")?.into(),
-                    title: req_str(&p, "title")?.into(),
-                    notes: opt_str(&p, "notes"),
+                    date,
+                    title,
+                    notes,
                     start_time: opt_str(&p, "start_time"),
                     end_time: opt_str(&p, "end_time"),
-                    task_id: opt_str(&p, "task_id"),
+                    task_id: Some(task.id.to_string()),
                 })
                 .await?;
-            Ok(serde_json::to_value(item).unwrap())
+            Ok(json!({
+                "task": task,
+                "item": item,
+                "id": task.id,
+                "task_id": task.id,
+                "title": task.title,
+                "date": task.due_date,
+                "column": task.column,
+            }))
         }
         "planner.delete" => {
             let id = EntityId::parse(req_str(&p, "id")?).map_err(AdhderError::Validation)?;
@@ -376,18 +439,48 @@ mod tests {
     }
 
     #[test]
-    fn planner_and_search() {
+    fn planner_schedules_task_and_tasks_sort_by_date() {
         setup();
-        invoke_json(
-            "planner.create",
+        let created = invoke_json(
+            "planner.schedule",
             r#"{"date":"2026-07-31","title":"Review Notes","start_time":"14:00"}"#,
         )
         .unwrap();
+        assert!(created.data.as_ref().unwrap()["task_id"].is_string());
+
         let list = invoke_json("planner.list", r#"{"date":"2026-07-31"}"#).unwrap();
         assert_eq!(list.data.as_ref().unwrap().as_array().unwrap().len(), 1);
+        assert_eq!(
+            list.data.as_ref().unwrap()[0]["title"],
+            "Review Notes"
+        );
+
+        // Same task appears in Tasks when sorted by due date.
+        let tasks = invoke_json("tasks.list", r#"{"sort":"due_date"}"#).unwrap();
+        let arr = tasks.data.as_ref().unwrap().as_array().unwrap();
+        assert!(arr.iter().any(|t| t["title"] == "Review Notes"));
 
         invoke_json("tasks.create", r#"{"title":"Find me convolution"}"#).unwrap();
         let hits = invoke_json("search.query", r#"{"q":"convolution"}"#).unwrap();
         assert!(!hits.data.as_ref().unwrap().as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn pomodoro_skip_advances_cycle() {
+        setup();
+        let session = invoke_json(
+            "pomodoro.prepare",
+            r#"{"kind":"focus"}"#,
+        )
+        .unwrap();
+        let sid = session.data.as_ref().unwrap()["id"].as_str().unwrap().to_string();
+        assert_eq!(session.data.as_ref().unwrap()["duration_secs"], 25 * 60);
+
+        let skipped = invoke_json("pomodoro.skip", &format!(r#"{{"id":"{sid}"}}"#)).unwrap();
+        assert_eq!(skipped.data.as_ref().unwrap()["next"]["kind"], "short_break");
+        assert_eq!(
+            skipped.data.as_ref().unwrap()["next"]["duration_secs"],
+            5 * 60
+        );
     }
 }

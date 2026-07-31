@@ -12,17 +12,30 @@ type Session = {
   status: 'idle' | 'running' | 'paused' | 'completed';
 };
 
-const LABELS: {key: Kind; label: string}[] = [
-  {key: 'focus', label: 'Focus'},
-  {key: 'short_break', label: 'Short Break'},
-  {key: 'long_break', label: 'Long Break'},
+type Advance = {
+  ended: Session;
+  next: Session;
+  skipped: boolean;
+};
+
+const LABELS: {key: Kind; label: string; mins: number}[] = [
+  {key: 'focus', label: 'Focus', mins: 25},
+  {key: 'short_break', label: 'Short Break', mins: 5},
+  {key: 'long_break', label: 'Long Break', mins: 15},
 ];
+
+const HINT: Record<Kind, string> = {
+  focus: 'Focus',
+  short_break: 'Short break',
+  long_break: 'Long break',
+};
 
 export function PomodoroScreen() {
   const [kind, setKind] = useState<Kind>('focus');
   const [session, setSession] = useState<Session | null>(null);
   const [stats, setStats] = useState({focus_sessions: 0, focus_minutes: 0});
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const advancing = useRef(false);
 
   const refreshStats = useCallback(async () => {
     const s = await invoke<{focus_sessions: number; focus_minutes: number}>(
@@ -31,19 +44,35 @@ export function PomodoroScreen() {
     setStats(s);
   }, []);
 
+  const applySession = useCallback((s: Session) => {
+    setSession(s);
+    setKind(s.kind);
+  }, []);
+
   const prepare = useCallback(
     async (k: Kind) => {
       const s = await invoke<Session>('pomodoro.prepare', {kind: k});
-      setSession(s);
-      setKind(k);
+      applySession(s);
     },
-    [],
+    [applySession],
   );
 
   useEffect(() => {
     prepare('focus');
     refreshStats();
   }, [prepare, refreshStats]);
+
+  const advanceAfterComplete = useCallback(async (id: string) => {
+    if (advancing.current) return;
+    advancing.current = true;
+    try {
+      const adv = await invoke<Advance>('pomodoro.complete_and_advance', {id});
+      applySession(adv.next);
+      refreshStats();
+    } finally {
+      advancing.current = false;
+    }
+  }, [applySession, refreshStats]);
 
   useEffect(() => {
     if (session?.status === 'running') {
@@ -53,16 +82,18 @@ export function PomodoroScreen() {
           id: session.id,
           elapsed_secs: 1,
         });
-        setSession(next);
         if (next.status === 'completed') {
-          refreshStats();
+          if (timer.current) clearInterval(timer.current);
+          await advanceAfterComplete(session.id);
+        } else {
+          setSession(next);
         }
       }, 1000);
     }
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [session?.status, session?.id, refreshStats]);
+  }, [session?.status, session?.id, advanceAfterComplete]);
 
   const remaining = session?.remaining_secs ?? 25 * 60;
   const duration = session?.duration_secs ?? 25 * 60;
@@ -73,17 +104,23 @@ export function PomodoroScreen() {
   const onPrimary = async () => {
     if (!session) return;
     if (session.status === 'running') {
-      setSession(await invoke('pomodoro.pause', {id: session.id}));
+      applySession(await invoke('pomodoro.pause', {id: session.id}));
     } else if (session.status === 'completed') {
-      await prepare(kind);
+      await advanceAfterComplete(session.id);
     } else {
-      setSession(await invoke('pomodoro.start', {id: session.id}));
+      applySession(await invoke('pomodoro.start', {id: session.id}));
     }
   };
 
   const onReset = async () => {
     if (!session) return;
-    setSession(await invoke('pomodoro.reset', {id: session.id}));
+    applySession(await invoke('pomodoro.reset', {id: session.id}));
+  };
+
+  const onSkip = async () => {
+    if (!session) return;
+    const adv = await invoke<Advance>('pomodoro.skip', {id: session.id});
+    applySession(adv.next);
   };
 
   return (
@@ -100,6 +137,7 @@ export function PomodoroScreen() {
           </Pressable>
         ))}
       </View>
+      <Text style={styles.cycleHint}>25 / 5 / 15 · skip anytime</Text>
 
       <View style={styles.ringWrap}>
         <View style={styles.ringOuter}>
@@ -118,7 +156,7 @@ export function PomodoroScreen() {
           </Text>
           <Text style={styles.timerHint}>
             {session?.status === 'running'
-              ? 'Focusing'
+              ? HINT[kind]
               : session?.status === 'paused'
                 ? 'Paused'
                 : 'Ready'}
@@ -131,13 +169,19 @@ export function PomodoroScreen() {
           {session?.status === 'running'
             ? 'Pause'
             : session?.status === 'completed'
-              ? 'Again'
+              ? 'Next'
               : 'Start'}
         </Text>
       </Pressable>
-      <Pressable onPress={onReset} style={styles.reset}>
-        <Text style={styles.resetText}>Reset</Text>
-      </Pressable>
+
+      <View style={styles.secondaryRow}>
+        <Pressable onPress={onSkip} style={styles.secondaryBtn}>
+          <Text style={styles.secondaryText}>Skip</Text>
+        </Pressable>
+        <Pressable onPress={onReset} style={styles.secondaryBtn}>
+          <Text style={styles.secondaryText}>Reset</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.statsRow}>
         <Text style={styles.stat}>
@@ -161,12 +205,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.pill,
     padding: 4,
-    marginBottom: space.xxxl,
+    marginBottom: space.sm,
   },
   tab: {paddingHorizontal: space.lg, paddingVertical: space.sm, borderRadius: radii.pill},
   tabActive: {backgroundColor: colors.white},
   tabText: {...type.small, color: colors.textSecondary},
   tabTextActive: {color: colors.accent, fontWeight: '600'},
+  cycleHint: {
+    ...type.caption,
+    color: colors.textMuted,
+    marginBottom: space.xxl,
+  },
   ringWrap: {marginBottom: space.xxxl},
   ringOuter: {
     width: 240,
@@ -198,8 +247,9 @@ const styles = StyleSheet.create({
     marginBottom: space.lg,
   },
   startText: {...type.title, color: colors.white, fontSize: 18},
-  reset: {padding: space.md},
-  resetText: {...type.body, color: colors.textSecondary},
+  secondaryRow: {flexDirection: 'row', gap: space.xl},
+  secondaryBtn: {padding: space.md},
+  secondaryText: {...type.body, color: colors.textSecondary},
   statsRow: {marginTop: 'auto', marginBottom: space.xxxl},
   stat: {...type.small, color: colors.textMuted},
 });

@@ -92,6 +92,31 @@ impl<'a> TaskRepository<'a> {
         rows.into_iter().map(row_to_task).collect()
     }
 
+    pub async fn list_by_due_date(&self, date: &str) -> Result<Vec<Task>> {
+        let rows = sqlx::query(
+            "SELECT * FROM tasks WHERE due_date = ? ORDER BY column_name, position ASC, created_at ASC",
+        )
+        .bind(date)
+        .fetch_all(self.pool)
+        .await
+        .map_err(map_sqlx)?;
+        rows.into_iter().map(row_to_task).collect()
+    }
+
+    pub async fn list_sorted_by_due_date(&self, ascending: bool) -> Result<Vec<Task>> {
+        // NULLs last whether ascending or descending.
+        let sql = if ascending {
+            "SELECT * FROM tasks ORDER BY (due_date IS NULL), due_date ASC, column_name, position ASC"
+        } else {
+            "SELECT * FROM tasks ORDER BY (due_date IS NULL), due_date DESC, column_name, position ASC"
+        };
+        let rows = sqlx::query(sql)
+            .fetch_all(self.pool)
+            .await
+            .map_err(map_sqlx)?;
+        rows.into_iter().map(row_to_task).collect()
+    }
+
     pub async fn delete(&self, id: &EntityId) -> Result<()> {
         let res = sqlx::query("DELETE FROM tasks WHERE id = ?")
             .bind(id.as_str())

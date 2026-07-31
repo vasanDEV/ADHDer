@@ -95,6 +95,38 @@ pub struct UpdateTask {
     pub due_date: Option<Option<String>>,
 }
 
+/// How to order tasks in list queries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskSort {
+    #[default]
+    Column,
+    DueDateAsc,
+    DueDateDesc,
+}
+
+impl TaskSort {
+    pub fn parse(raw: &str) -> Result<Self> {
+        match raw {
+            "column" | "" => Ok(Self::Column),
+            "due_date" | "due_date_asc" | "date" | "date_asc" => Ok(Self::DueDateAsc),
+            "due_date_desc" | "date_desc" => Ok(Self::DueDateDesc),
+            other => Err(AdhderError::Validation(format!(
+                "invalid task sort '{other}' (expected column|due_date|due_date_desc)"
+            ))),
+        }
+    }
+}
+
+/// Validate YYYY-MM-DD due dates (optional field).
+pub fn validate_due_date(date: &str) -> Result<()> {
+    chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map(|_| ())
+        .map_err(|_| {
+            AdhderError::Validation(format!("due_date must be YYYY-MM-DD, got '{date}'"))
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

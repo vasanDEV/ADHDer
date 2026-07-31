@@ -4,5 +4,7 @@ mod domain;
 mod repository;
 mod service;
 
-pub use domain::{CreateTask, KanbanColumn, Task, TaskPriority, UpdateTask};
+pub use domain::{
+    validate_due_date, CreateTask, KanbanColumn, Task, TaskPriority, TaskSort, UpdateTask,
+};
 pub use service::TaskService;

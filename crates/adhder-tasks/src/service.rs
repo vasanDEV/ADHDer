@@ -6,7 +6,9 @@ use adhder_core::{
 use adhder_db::DbPool;
 use chrono::Utc;
 
-use crate::domain::{CreateTask, KanbanColumn, Task, TaskPriority, UpdateTask};
+use crate::domain::{
+    validate_due_date, CreateTask, KanbanColumn, Task, TaskPriority, TaskSort, UpdateTask,
+};
 use crate::repository::TaskRepository;
 
 pub struct TaskService {
@@ -37,6 +39,9 @@ impl TaskService {
             ));
         }
         let column = input.column.unwrap_or(KanbanColumn::Todo);
+        if let Some(ref due) = input.due_date {
+            validate_due_date(due)?;
+        }
         let repo = TaskRepository::new(&self.pool);
         let now = self.clock.now_utc();
         let task = Task {
@@ -77,6 +82,9 @@ impl TaskService {
             task.priority = priority;
         }
         if let Some(due) = patch.due_date {
+            if let Some(ref d) = due {
+                validate_due_date(d)?;
+            }
             task.due_date = due;
         }
         task.updated_at = self.clock.now_utc();
@@ -147,6 +155,20 @@ impl TaskService {
         TaskRepository::new(&self.pool).list_all().await
     }
 
+    pub async fn list_sorted(&self, sort: TaskSort) -> Result<Vec<Task>> {
+        let repo = TaskRepository::new(&self.pool);
+        match sort {
+            TaskSort::Column => repo.list_all().await,
+            TaskSort::DueDateAsc => repo.list_sorted_by_due_date(true).await,
+            TaskSort::DueDateDesc => repo.list_sorted_by_due_date(false).await,
+        }
+    }
+
+    pub async fn list_by_due_date(&self, date: &str) -> Result<Vec<Task>> {
+        validate_due_date(date)?;
+        TaskRepository::new(&self.pool).list_by_due_date(date).await
+    }
+
     pub async fn get(&self, id: &EntityId) -> Result<Task> {
         TaskRepository::new(&self.pool).get(id).await
     }
@@ -213,5 +235,46 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(err, AdhderError::Validation(_)));
+    }
+
+    #[tokio::test]
+    async fn list_by_due_date_and_sort() {
+        let svc = svc().await;
+        svc.create(CreateTask {
+            title: "Later".into(),
+            notes: None,
+            column: None,
+            priority: None,
+            due_date: Some("2026-08-02".into()),
+        })
+        .await
+        .unwrap();
+        svc.create(CreateTask {
+            title: "Today".into(),
+            notes: None,
+            column: None,
+            priority: None,
+            due_date: Some("2026-07-31".into()),
+        })
+        .await
+        .unwrap();
+        svc.create(CreateTask {
+            title: "Undated".into(),
+            notes: None,
+            column: None,
+            priority: None,
+            due_date: None,
+        })
+        .await
+        .unwrap();
+
+        let day = svc.list_by_due_date("2026-07-31").await.unwrap();
+        assert_eq!(day.len(), 1);
+        assert_eq!(day[0].title, "Today");
+
+        let sorted = svc.list_sorted(TaskSort::DueDateAsc).await.unwrap();
+        assert_eq!(sorted[0].title, "Today");
+        assert_eq!(sorted[1].title, "Later");
+        assert_eq!(sorted[2].title, "Undated");
     }
 }
