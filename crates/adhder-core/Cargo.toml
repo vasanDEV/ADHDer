@@ -1,0 +1,13 @@
+[package]
+name = "adhder-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared kernel: IDs, errors, events, time"
+
+[dependencies]
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }

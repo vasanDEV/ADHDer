@@ -1,0 +1,44 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# Node / React Native
+node_modules/
+.expo/
+dist/
+*.log
+npm-debug.*
+yarn-error.*
+.pnpm-store/
+
+# Android
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+**/android/local.properties
+**/android/.idea/
+**/*.iml
+**/.cxx/
+**/captures/
+*.keystore
+!debug.keystore
+
+# UniFFI / generated (regenerated on build; keep checked-in Kotlin stubs if present)
+crates/adhder-android/generated/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+
+# Test artifacts
+*.db
+*.db-journal
+/tmp/

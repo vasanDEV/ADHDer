@@ -1,0 +1,56 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/adhder-core",
+    "crates/adhder-db",
+    "crates/adhder-tasks",
+    "crates/adhder-notes",
+    "crates/adhder-pomodoro",
+    "crates/adhder-planner",
+    "crates/adhder-settings",
+    "crates/adhder-stats",
+    "crates/adhder-search",
+    "crates/adhder-android",
+]
+default-members = [
+    "crates/adhder-core",
+    "crates/adhder-db",
+    "crates/adhder-tasks",
+    "crates/adhder-notes",
+    "crates/adhder-pomodoro",
+    "crates/adhder-planner",
+    "crates/adhder-settings",
+    "crates/adhder-stats",
+    "crates/adhder-search",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["ADHDer"]
+
+[workspace.dependencies]
+adhder-core = { path = "crates/adhder-core" }
+adhder-db = { path = "crates/adhder-db" }
+adhder-tasks = { path = "crates/adhder-tasks" }
+adhder-notes = { path = "crates/adhder-notes" }
+adhder-pomodoro = { path = "crates/adhder-pomodoro" }
+adhder-planner = { path = "crates/adhder-planner" }
+adhder-settings = { path = "crates/adhder-settings" }
+adhder-stats = { path = "crates/adhder-stats" }
+adhder-search = { path = "crates/adhder-search" }
+
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde", "clock"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "chrono"] }
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
